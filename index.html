@@ -239,6 +239,7 @@ table:not(.cal-grid) tr:nth-child(even) td{background:rgba(255,255,255,.035)}
 .bdg.own{background:rgba(95,214,138,.18);color:#7be3a3;border:1px solid rgba(95,214,138,.5)}
 .bdg.no{background:rgba(255,255,255,.07);color:#9ab09e;border:1px solid rgba(255,255,255,.18)}
 .tune-panel{display:block;margin-top:9px;padding:9px 10px;border:1px solid rgba(229,189,114,.45);border-radius:9px;background:rgba(0,0,0,.18);max-width:560px}.tune-panel b{display:block;color:var(--accent);margin-bottom:5px}.tune-panel input{display:block;margin:5px 0}.tune-ends{display:flex;justify-content:space-between;gap:6px;font-size:10px;color:#bfc9bd}.tune-panel small{display:block;margin-top:5px;line-height:1.35;color:#d3dccf}#padStatus{position:fixed;right:12px;top:12px;z-index:30;display:none;max-width:min(300px,70vw);padding:7px 10px;border:1px solid rgba(123,211,165,.5);border-radius:9px;background:rgba(8,18,15,.82);color:#d9ffe9;font:700 11px/1.35 system-ui,sans-serif;letter-spacing:.02em;pointer-events:none;box-shadow:0 4px 18px rgba(0,0,0,.28)}
+#padStatus{display:none!important}
 #padStatus small{display:block;color:#b6d9c4;font-weight:500;margin-top:2px}
 
 #padCursor{position:fixed;left:50vw;top:50vh;width:28px;height:36px;z-index:10001;display:none;pointer-events:none;transform:translate(-1px,-1px);filter:drop-shadow(0 2px 3px rgba(0,0,0,.85));will-change:left,top}#padCursor svg{display:block;width:100%;height:100%;overflow:visible}#padCursor.pressed{transform:translate(-1px,-1px) scale(.86)}.pad-hover{outline:2px solid rgba(255,184,46,.95)!important;outline-offset:2px!important;filter:brightness(1.13)}
@@ -247,6 +248,9 @@ table:not(.cal-grid) tr:nth-child(even) td{background:rgba(255,255,255,.035)}
 #c3{z-index:0!important}
 #c{z-index:0}
 #hud{z-index:5}
+/* Während des Start-Countdowns ist das (abschaltbare) Renn-HUD ausgeblendet. */
+#hudTop,#bar,#slopeHud{transition:opacity .35s ease}
+body.cd-hud-off #hudTop,body.cd-hud-off #bar,body.cd-hud-off #slopeHud,body.cd-hud-off #ovHud,body.cd-hud-off #researchHud{opacity:0!important;visibility:hidden!important}
 #tc{z-index:6}
 #ov{z-index:20}
 #rally-view-toggle{z-index:30!important}
@@ -765,7 +769,7 @@ function pollGamepad(dt=0){
   }
   if(!padWasConnected||activePadId!==pad.id){
     padWasConnected=true;activePadId=pad.id||'Gamepad';
-    const el=$('padStatus');if(el){el.style.display='block';el.innerHTML='🎮 Controller verbunden<small>Fahrt: Stick lenkt · RT: Gas · LT: Bremse · A: Handbremse · LB: Boost · Menüs: Stick bewegt Mauszeiger, A klickt</small>';}
+    const el=$('padStatus');if(el){el.style.display='none';el.innerHTML='';}
     padCursorReady=false;
     toast('🎮 Controller verbunden – Fahrsteuerung aktiv');
   }
@@ -903,6 +907,8 @@ const TRACK_LENGTHS=[
  {id:'long',name:'📏 Lang',mult:1.45,desc:'Lange Etappe (~46 L Verbrauch)'},
  {id:'marathon',name:'📏 Marathon',mult:2.2,desc:'Extrem-Etappe (~68 L Verbrauch)'}
 ];
+/* WM-Wochenendrennen: keine Marathon-Länge (bleibt den Endurance-Events vorbehalten). */
+const WM_TRACK_LENGTHS=TRACK_LENGTHS.filter(l=>l.id!=='marathon');
 const TIMES=[
  {id:0,n:'Tag',ic:'☀️',desc:'Volle Sicht'},
  {id:1,n:'Sonnenuntergang',ic:'🌇',desc:'Tiefe Sonne, lange Schatten'},
@@ -952,10 +958,11 @@ let owned={tires:[1,0,0,0,0,0,0,0,0,0],engine:[0,1,0,0],chassis:[0,1,0,0],aero:[
 let partLvls={tires:[1,1,1,1,1,1,1,1,1,1],engine:[1,1,1,1],chassis:[1,1,1,1],aero:[1,1,1,1]};
 // Drei fahrzeugspezifische 10-Stufen-Abstimmungen (werden im Spielstand gespeichert).
 let vehicleTune={hybrid:5, wing:5, composite:5};
-const COMPOSITE_TURN_LEVELS=[0.88,0.91,0.94,0.97,1.00,1.04,1.08,1.12,1.16,1.20];
-const COMPOSITE_STABILITY_LEVELS=[1.18,1.14,1.10,1.06,1.02,0.98,0.94,0.90,0.86,0.82];
+/* Verbund-Monocoque: Stufe 1 = maximaler Crash-Schutz, Stufe 10 = maximale Kurvenstabilität (Seitenführung). */
+const COMPOSITE_DMG_LEVELS=[0.76,0.81,0.86,0.91,0.96,1.04,1.09,1.14,1.19,1.24];
+const COMPOSITE_STABILITY_LEVELS=[0.90,0.92,0.95,0.97,0.99,1.01,1.03,1.05,1.08,1.10];
 function tuneLevel(key){return Math.max(1,Math.min(10,Math.round(Number(vehicleTune[key])||5)));}
-// Die Chassis-Abstimmung beeinflusst ausschließlich Lenkagilität und Hochgeschwindigkeitsstabilität.
+// Die Chassis-Abstimmung tauscht Crash-Schadensreduktion gegen Kurvenstabilität.
 function getTankCapacity(){return 100;}
 function hybridTuneFactors(){
   const bias=(tuneLevel('hybrid')-5.5)/4.5;
@@ -968,7 +975,8 @@ function wingTuneFactors(){
   const bias=(v-5.5)/4.5;
   return {downforce:1+0.22*bias, drag:1+0.085*bias, angle:2+(v-1)*2};
 }
-function compositeTurnFactor(){return equipped.chassis===3?COMPOSITE_TURN_LEVELS[tuneLevel('composite')-1]:1;}
+function compositeTurnFactor(){return 1;}
+function compositeDmgFactor(){return equipped.chassis===3?COMPOSITE_DMG_LEVELS[tuneLevel('composite')-1]:1;}
 function compositeStabilityFactor(){return equipped.chassis===3?COMPOSITE_STABILITY_LEVELS[tuneLevel('composite')-1]:1;}
 window.setVehicleTune=function(key,value){
   if(!Object.prototype.hasOwnProperty.call(vehicleTune,key))return;
@@ -1271,7 +1279,7 @@ function applySavePayload(d){
     wmData = d.wmData.map(st => ({
       biome: biomeByName(st.biomeName),
       tType: st.tType || 'normal',
-      tLen: st.tLen || 'medium',
+      tLen: (st.tLen==='marathon' && !st.raceRank) ? 'long' : (st.tLen || 'medium'),
       weather: migrateWeatherIndex(st.weather),
       tod: typeof st.tod === 'number' ? st.tod : 0,
       frTime: st.frTime || null,
@@ -3823,9 +3831,9 @@ function makeGrass(){document.body.classList.toggle('biome-wuste',!!(BI&&BI.n===
 
 /* Zustand */
 let state='menu',t=0,pen=0,idx=0,dist=0,hitCd=0,cutCd=0,cutTime=0,cutWarned=false,cdT=0,cdLast=4;
-let introT=0,introHud=null,introRestore3D=null,introLastShot='',startCamHandoff=null;
+let introT=0,introBeep='',cdHudOff=false,introHud=null,introRestore3D=null,introLastShot='',startCamHandoff=null;
 function beginStartCinematic(){
-  introT=0;introLastShot='';
+  introT=0;introLastShot='';introBeep='3';try{sndEvent('beep')}catch(e){}
   introRestore3D=typeof window.getRally3DMode==='function'?window.getRally3DMode():null;
   if(typeof window.setRally3DMode==='function')window.setRally3DMode(true);
   if(!document.getElementById('rallyIntroStyle')){const st=document.createElement('style');st.id='rallyIntroStyle';st.textContent=`#rallyIntro{position:fixed;inset:0;z-index:12;pointer-events:none;color:#fff;font-family:"Chakra Petch",system-ui,sans-serif;text-align:center;display:flex;flex-direction:column;justify-content:space-between;padding:8vh 5vw 7vh;box-sizing:border-box;background:linear-gradient(180deg,rgba(0,0,0,.34),transparent 30%,transparent 68%,rgba(0,0,0,.48));animation:riFade .5s ease-out}#rallyIntro:before,#rallyIntro:after{content:"";position:absolute;left:0;width:100%;height:5.5vh;background:#050706;box-shadow:0 0 24px #000}#rallyIntro:before{top:0}#rallyIntro:after{bottom:0}#rallyIntro .ri-brand{font:900 clamp(22px,4vw,48px) Bungee,Impact,sans-serif;letter-spacing:.14em;color:#fff2d0;text-shadow:0 4px 18px #000}#rallyIntro .ri-sub{font-size:clamp(10px,1.5vw,15px);letter-spacing:.42em;color:#ffbd45;margin-top:7px}#rallyIntro .ri-shot{font:700 clamp(12px,1.8vw,19px) "Chakra Petch",sans-serif;letter-spacing:.22em;text-transform:uppercase;text-shadow:0 2px 12px #000}#rallyIntro .ri-count{font:900 clamp(76px,17vw,190px) Bungee,Impact,sans-serif;line-height:.9;color:#fff;text-shadow:0 8px 36px #000,0 0 32px rgba(255,178,43,.55);letter-spacing:.04em;transform:scale(1);transition:transform .25s,color .25s}#rallyIntro .ri-count.go{font-size:clamp(52px,11vw,120px);color:#ffc04a}#rallyIntro .ri-line{width:min(220px,45vw);height:2px;margin:12px auto 0;background:linear-gradient(90deg,transparent,#ffb82e,transparent)}@keyframes riFade{from{opacity:0}to{opacity:1}}`;document.head.appendChild(st)}
@@ -3849,7 +3857,7 @@ function endStartCinematic(){
   try{
     if(restore3D&&typeof window.setRally3DMode==='function')window.setRally3DMode(false);
   }catch(e){console.warn('3D-Kameramodus konnte beim Start nicht zurückgesetzt werden:',e)}
-try{sndEvent('go');say('Los!')}catch(e){console.warn('Startsignal konnte nicht abgespielt werden:',e)}
+try{sndEvent('gunshot');say('Los!')}catch(e){console.warn('Startsignal konnte nicht abgespielt werden:',e)}
 }
 
 const car={x:0,y:0,a:0,vx:0,vy:0,z:0,vz:0,st:0,hbSlip:0,hp:100,wheels:[1,1,1,1],fuel:50,lowFuelWarn:false};
@@ -3892,7 +3900,7 @@ function getCarStats(fVal=fuelLoad, envMode=false){
     aero: ae.df * aeLv * (1+spPerk('aero')) * wingTune.downforce,
     aeroDrag: ae.drag * wingTune.drag,
     fuelRate: (en.fuel || 1.0) * resFuel * (1-spPerk('fuelCut')),
-    dmgMult: (ch.dmg || 1.0) * (1-0.12*resV('composite_cage')) * (1+0.10*resPro('d')) * (1-spPerk('dmg')),
+    dmgMult: (ch.dmg || 1.0) * compositeDmgFactor() * (1-0.12*resV('composite_cage')) * (1+0.10*resPro('d')) * (1-spPerk('dmg')),
     tireMatch: tm
   };
 }
@@ -4762,9 +4770,9 @@ window.openGarage=function(cat){
       tunePanel='<div class="tune-panel"><b>🪽 Flügelwinkel · Stufe '+v+'/10 ('+f.angle+'°)</b><input type="range" min="1" max="10" step="1" value="'+v+'" oninput="setVehicleTune(\'wing\',this.value)" style="width:100%;accent-color:var(--accent)"><div class="tune-ends"><span>1 · Flach</span><span>5–6 · Mittel</span><span>10 · Steil</span></div><small>'+mode+' · Abtrieb '+(dfPct>=0?'+':'')+dfPct+'% · Luftwiderstand '+(dragPct>=0?'+':'')+dragPct+'%</small></div>';
     }
     if(isEq&&isOwn&&garCat==='chassis'&&i===3){
-      const v=tuneLevel('composite'), trn=Math.round((COMPOSITE_TURN_LEVELS[v-1]-1)*100), stab=Math.round((COMPOSITE_STABILITY_LEVELS[v-1]-1)*100);
-      const mode=v<=3?'Stabilitätsorientiert · ruhiger Geradeauslauf':(v<=7?'Ausgewogen · neutrales Fahrverhalten':'Agilitätsorientiert · direkteres Einlenken');
-      tunePanel='<div class="tune-panel"><b>🏎️ Lenkagilität & Hochgeschwindigkeitsstabilität · Stufe '+v+'/10</b><input type="range" min="1" max="10" step="1" value="'+v+'" oninput="setVehicleTune(\'composite\',this.value)" style="width:100%;accent-color:var(--accent)"><div class="tune-ends"><span>1 · Stabil</span><span>5–6 · Ausgewogen</span><span>10 · Agil</span></div><small>'+mode+' · Lenkagilität '+(trn>=0?'+':'')+trn+'% · Hochgeschwindigkeitsstabilität '+(stab>=0?'+':'')+stab+'% (wirkt vor allem bei hohem Tempo). Tankkapazität bleibt bei 100 L; Crash-Schadensresistenz bleibt unverändert.</small></div>';
+      const v=tuneLevel('composite'), dmgRed=Math.round((1-COMPOSITE_DMG_LEVELS[v-1])*100), stab=Math.round((COMPOSITE_STABILITY_LEVELS[v-1]-1)*100);
+      const mode=v<=3?'Crash-orientiert · steckt harte Einschläge besser weg':(v<=7?'Ausgewogen · neutrales Verhalten':'Kurven-orientiert · mehr Seitenführung in Kurven');
+      tunePanel='<div class="tune-panel"><b>🛡️ Crash-Schadensreduktion & Kurvenstabilität · Stufe '+v+'/10</b><input type="range" min="1" max="10" step="1" value="'+v+'" oninput="setVehicleTune(\'composite\',this.value)" style="width:100%;accent-color:var(--accent)"><div class="tune-ends"><span>1 · Crash-Schutz</span><span>5–6 · Ausgewogen</span><span>10 · Kurvenstabil</span></div><small>'+mode+' · Crash-Schadensreduktion '+(dmgRed>=0?'+':'')+dmgRed+'% · Kurvenstabilität '+(stab>=0?'+':'')+stab+'%. Tankkapazität bleibt bei 100 L.</small></div>';
     }
     h+='<div class="up'+stCls+'"><div style="flex:1;min-width:170px"><b>'+p.n+'</b>'+badge+' · <span style="color:var(--accent)">Stufe '+lv+'/'+maxLv+'</span><div class="stat-bar" style="max-width:220px;margin:5px 0"><i style="width:'+Math.min(100,lv/maxLv*100)+'%"></i></div><small>'+p.desc+'</small>'+tunePanel+matchLine+'</div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">';
     if(!isOwn){
@@ -4910,7 +4918,7 @@ window.startWM=function(){
     wmData.push({
       biome:stageBiome,
       tType:TRACK_TYPES[Math.floor(Math.random()*TRACK_TYPES.length)].id,
-      tLen:TRACK_LENGTHS[Math.floor(Math.random()*TRACK_LENGTHS.length)].id,
+      tLen:WM_TRACK_LENGTHS[Math.floor(Math.random()*WM_TRACK_LENGTHS.length)].id,
       weather:rollWeather(stageBiome),
       tod:Math.floor(Math.random()*TIMES.length),
       frTime:null,
@@ -5322,7 +5330,8 @@ function sndEvent(name,v){
   try{
     if(au.A.state==='suspended')au.A.resume();
     switch(name){
-      case 'beep':sndTone('sine',520,520,.14,.16);sndTone('triangle',1040,1040,.12,.05);break;
+      case 'beep':sndTone('square',880,880,.16,.07);sndTone('sine',880,880,.18,.13);sndTone('sine',1760,1760,.08,.03);break;
+      case 'gunshot':sndNoise(.05,'highpass',1800,5200,.5,.7);sndNoise(.55,'lowpass',3800,180,.42,.8,.01);sndTone('sine',170,38,.32,.42);sndTone('square',95,40,.14,.12);sndNoise(1.1,'bandpass',900,260,.06,.6,.12);break;
       case 'go':sndTone('sine',1040,1040,.42,.2);sndTone('triangle',2080,2080,.3,.06);sndNoise(.25,'highpass',2500,6000,.03);break;
       case 'gateOk':sndTone('sine',660,660,.09,.12);sndTone('sine',990,990,.14,.12,.08);break;
       case 'gateFail':sndTone('square',240,150,.22,.07);break;
@@ -6059,6 +6068,7 @@ window.continueTeamContract=function(){
 };
 
 function update(dt){
+  {const off=state==='intro'||state==='count';if(off!==cdHudOff){cdHudOff=off;document.body.classList.toggle('cd-hud-off',off)}}
   pollGamepad(dt);
   if(state==='pitstop'){
     t+=dt;
@@ -6076,6 +6086,7 @@ function update(dt){
     // Nur drei Countdown-Beats: Die finale Chase-Einstellung läuft bereits bei "1".
     // Sobald sie die normale Verfolgerposition erreicht, beginnt bei "Los!" sofort das Rennen.
     const n=introT<1.7875?'3':introT<3.575?'2':'1';
+    if(n!==introBeep){introBeep=n;try{sndEvent('beep')}catch(e){}}
     const shot=introT<1.7875?'WIDE SHOT · FRONT APPROACH':introT<3.575?'HARD CUT · CLOSE SIDE DETAIL':'HARD CUT · LOW CHASE CAM · READY';
     if(introHud){const countEl=introHud.querySelector('.ri-count'),shotEl=introHud.querySelector('.ri-shot');if(countEl&&countEl.textContent!==n){countEl.textContent=n;countEl.classList.remove('go');}if(shotEl&&shot!==introLastShot){shotEl.textContent=shot;introLastShot=shot;}}
     if(introT>=5.3625)endStartCinematic();
@@ -6097,7 +6108,7 @@ brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
   lanciaSteerInput=play?tgt:0;
   if(state==='count'){
     cdT-=dt;const n=Math.ceil(cdT);
-    if(n!==cdLast){cdLast=n;if(n>0){big(n);sndEvent('beep')}else{big('Los!');sndEvent('go');resLaunch=0;state='play';say('Los!')}}
+    if(n!==cdLast){cdLast=n;if(n>0){big(n);sndEvent('beep')}else{big('Los!');sndEvent('gunshot');resLaunch=0;state='play';say('Los!')}}
   }
   if(state==='menu'||state==='end')return;
 
@@ -6189,8 +6200,8 @@ brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
   // Fahrverhalten: etwas weniger Seitenführung, trägeres Einlenken und
   // stärkeres Giermoment bei vorhandenem Seitenschlupf (spürbares Übersteuern).
   const grip = airborne ? 1.2 : Math.max(0.6, (surfaceBase * st.grip * downforce * Math.max(0.5, 1 - missTotal*0.15)) - (6.4 * sFactor));
-  // Das Verbund-Monocoque tauscht bei der Abstimmung Lenkagilität gegen Stabilität bei hohem Tempo.
-  const stabilityAtSpeed=1+(st.compositeStability-1)*Math.min(1,Math.abs(vf)/300);
+  // Das Verbund-Monocoque tauscht bei der Abstimmung Crash-Schutz gegen Kurvenstabilität (Seitenführung).
+  const stabilityAtSpeed=st.compositeStability||1;
   const lateralGrip = grip * 0.82 * stabilityAtSpeed;
   vr *= Math.exp(-lateralGrip * wGrip * BI.gr * dt);
 
@@ -8050,7 +8061,7 @@ function cave(c,wd){
   const caveInteriorMesh=new T.Mesh(g,new T.MeshLambertMaterial({map:rt,color:'#aaa4a0',side:T.BackSide,flatShading:true}));caveInteriorMesh.name='CameraBlocker-Tunnel-Innenwand';wd.add(caveInteriorMesh);cameraBlockers.push(caveInteriorMesh);
   /* Fix: Aussenhülle (Fels), damit die Höhle auch von aussen als Berg/Tunnel sichtbar ist */
   {const PO=[],UO=[],IO=[],RO=R+28,HO=Hh+34,M=N+3,sd=c.s*.37;let r2=0;
-   for(let i=c.s+1;i<=c.e-1&&pts[i];i++){
+   for(let i=c.s;i<=c.e&&pts[i];i++){
      const p=pts[i],nx=-Math.sin(p.h),nz=Math.cos(p.h),by=rh[i]||0,v=i*STEP/120;
      PO.push(p.x+nx*RO,by-26,p.y+nz*RO);UO.push(0,v);
      for(let k=0;k<=N;k++){const a=Math.PI*k/N,q=1+.045*Math.sin(i*.55+k*1.9+sd)+.022*Math.sin(i*1.3+k*.7),cx=Math.cos(a)*RO*q;PO.push(p.x+nx*cx,Math.sin(a)*HO*q+by,p.y+nz*cx);UO.push(.1+k/N*3,v)}
@@ -8064,15 +8075,31 @@ function cave(c,wd){
    }}
   const lm=new T.InstancedMesh(new T.BoxGeometry(11,3,11),new T.MeshBasicMaterial({color:'#ffd89a'}),Math.max(1,lamps.length)),o=new T.Object3D();
   lamps.forEach((p,i)=>{o.position.set(p.x,Hh-6+p.hh,p.y);o.updateMatrix();lm.setMatrixAt(i,o.matrix)});lm.frustumCulled=false;wd.add(lm);
-  const outerPortalMat=new T.MeshStandardMaterial({color:BI.n==='Schnee'?'#879399':BI.n==='Vulkan'?'#51413d':'#625d58',roughness:.98,flatShading:true});
+  const outerPortalMat=new T.MeshStandardMaterial({color:BI.n==='Schnee'?'#879399':BI.n==='Vulkan'?'#51413d':'#625d58',roughness:.98,flatShading:true,side:T.DoubleSide});
   const portalRockGeo=new T.DodecahedronGeometry(1,1);
+  // Portal-Kragen: Innenkontur = exakt das Polygon der Tunnelröhre (gleiche N Stützstellen, R/Hh),
+  // Außenkontur deckt die Felshülle vollständig ab. Dadurch sitzt das Tor bündig an Röhre und Fels.
+  const archGeo=(ri,hi,ro,ho,foot,zIn,zOut)=>{
+    const L=1.6,sh=new T.Shape();
+    sh.moveTo(ro,-foot);
+    for(let k=0;k<=N;k++){const a=Math.PI*k/N;sh.lineTo(Math.cos(a)*ro,Math.sin(a)*ho)}
+    sh.lineTo(-ro,-foot);sh.lineTo(-(ri-L),-foot);
+    for(let k=N;k>=0;k--){const a=Math.PI*k/N;sh.lineTo(Math.cos(a)*(ri-L),Math.sin(a)*(hi-L))}
+    sh.lineTo(ri-L,-foot);
+    const g=new T.ExtrudeGeometry(sh,{depth:zIn+zOut,bevelEnabled:false,curveSegments:1});
+    g.translate(0,0,-zIn);return g;
+  };
+  const rimMat=new T.MeshLambertMaterial({color:'#b28a69',flatShading:true,side:T.DoubleSide});
   for(const i of[c.s,c.e]){
     const p=pts[i];if(!p)continue;
-    // Äusserer, breiter Felskranz und innerer heller Rand markieren denselben Portalbogen.
-    const outer=new T.Mesh(new T.TorusGeometry(R+26,14,5,N,Math.PI),outerPortalMat);
-    outer.scale.y=(Hh+30)/(R+26);outer.position.set(p.x,(rh[i]||0)+1,p.y);outer.rotation.y=-p.h-Math.PI/2;outer.castShadow=true;outer.receiveShadow=true;wd.add(outer);
-    const inner=new T.Mesh(new T.TorusGeometry(R+4,7,4,N,Math.PI),new T.MeshLambertMaterial({color:'#b28a69',flatShading:true}));
-    inner.scale.y=Hh/R;inner.position.set(p.x,(rh[i]||0)+1,p.y);inner.rotation.y=-p.h-Math.PI/2;inner.castShadow=true;wd.add(inner);
+    // Tangente wie die Röhre (p.h). Lokales +Z zeigt nach -Tangente: am Eingang nach außen, am Ausgang nach innen.
+    const sgn=i===c.s?1:-1;
+    const outer=new T.Mesh(archGeo(R,Hh,R+46,Hh+50,28,16,4),outerPortalMat);
+    const rim=new T.Mesh(archGeo(R,Hh,R+10,Hh+10,4,4,7),rimMat);
+    for(const m of[outer,rim]){
+      m.scale.z=sgn;m.position.set(p.x,(rh[i]||0),p.y);m.rotation.y=-p.h-Math.PI/2;
+      m.castShadow=true;m.receiveShadow=true;wd.add(m);
+    }
     // Niedrige, facettierte Felswangen binden die Portalkanten in den Hang ein.
     for(const side of[-1,1]){
       const off=HW+48, x=p.x-Math.sin(p.h)*side*off, z=p.y+Math.cos(p.h)*side*off;
