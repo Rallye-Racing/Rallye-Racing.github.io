@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v102 · Countdown & Cockpit-Wechsel</title>
+<title>Rally Stage – Lancia Delta Integrale · v106 · Weiche Hindernisse &amp; Steppen</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -3536,12 +3536,25 @@ function rallySidePoint(p,side,off,halfAlong=0,minGap=HW+54){
 
 const solidKey=(x,y)=>Math.floor(x/SOLID_CELL)+','+Math.floor(y/SOLID_CELL);
 function resetSolidColliders(){solidColliders=[];solidGrid.clear();solidGridReady=false;}
-function addSolidCollider(x,y,r,kind='Hindernis'){
+function addSolidCollider(x,y,r,kind='Hindernis',opts){
   if(!Number.isFinite(x)||!Number.isFinite(y)||!Number.isFinite(r)||r<3)return;
-  solidColliders.push({x,y,r:Math.max(4,r),kind});
+  solidColliders.push({x,y,r:Math.max(4,r),kind,soft:!!(opts&&opts.soft)});
 }
 function addSolidList(list,scale=.7,minR=7,kind='Fels'){
   for(const o of list||[]){const r=(o.r||0)*scale;if(r>=minR)addSolidCollider(o.x,o.y,r,kind);}
+}
+/* Buschwerk und junge Bäume sind weiche Hindernisse: man pflügt hindurch,
+   verliert Tempo und ein paar Prozent Zustand – sie blockieren aber nicht wie eine Wand. */
+function addSoftList(list,scale=.72,minR=5,kind='Buschwerk'){
+  for(const o of list||[]){const r=(o.r||0)*scale;if(r>=minR)addSolidCollider(o.x,o.y,r,kind,{soft:true});}
+}
+/* Bäume: dicke Stämme bleiben feste Wände, dünne/junge Exemplare geben nach. */
+function addTreeColliders(list,scale=.72,minR=8,softBelow=20){
+  for(const o of list||[]){
+    const r=(o.r||0)*scale;if(r<minR)continue;
+    if(r<softBelow)addSolidCollider(o.x,o.y,r,'Jungbaum',{soft:true});
+    else addSolidCollider(o.x,o.y,r,'Baum');
+  }
 }
 function buildSolidGrid(){
   solidGrid.clear();
@@ -3584,6 +3597,13 @@ function addWorldDash(path,i,on,period,phase){
     path.moveTo(A.x+(B.x-A.x)*u0,A.y+(B.y-A.y)*u0);
     path.lineTo(A.x+(B.x-A.x)*u1,A.y+(B.y-A.y)*u1);
   }
+}
+/* Vegetationsbündelung: eigene Smoothstep-Kurve, damit die Helfer schon bei
+   der Streckengenerierung zur Verfügung stehen (vor `sm` und den Biom-Props). */
+function vegStep(a,b,x){const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)}
+function propPatch(ii){
+  const n=.5+.27*Math.sin(ii*.0113+1.9)+.15*Math.sin(ii*.0039-.7)+.08*Math.sin(ii*.026+2.6);
+  return vegStep(.33,.63,n);
 }
 function genTrack(){
   const lenObj=TRACK_LENGTHS.find(l=>l.id===trackLenMod)||TRACK_LENGTHS[1];
@@ -4069,7 +4089,7 @@ function genTrack(){
           tryAddTree(tx,ty,r,true);
         }
       }
-    } else if(i%15===0 && Math.random()<=BI.dens){
+    } else if(i%15===0 && propPatch(i)>.45 && Math.random()<=BI.dens){
       const sd=Math.random()<.5?1:-1;
       if(BI.sea&&sd===seaSd)continue;
       const off=HW+180+Math.random()*360;
@@ -4079,7 +4099,7 @@ function genTrack(){
     }
   }
   // 2D-Fallback und erster Frame: natürliche Hindernisse direkt als Collider indexieren.
-  resetSolidColliders();addSolidList(trees,.72,8,'Baum');addSolidList(caveRocks,.82,8,'Fels');buildSolidGrid();
+  resetSolidColliders();addTreeColliders(trees,.72,8);addSolidList(caveRocks,.82,8,'Fels');buildSolidGrid();
   decor=[];
   // Zuschauerbereiche auf geeigneten, relativ geraden Abschnitten.
   // Um die Bereiche entsteht ein seitlicher Freiraum, damit Bäume, Büsche,
@@ -4141,7 +4161,7 @@ function genTrack(){
   // Bäume aus den Sichtkorridoren entfernen und den 2D-Kollisionsindex erneuern.
   if(rallyClearZones.length){
     trees=trees.filter(t=>!inRallyClearZone(t.x,t.y));
-    resetSolidColliders();addSolidList(trees,.72,8,'Baum');addSolidList(caveRocks,.82,8,'Fels');buildSolidGrid();
+    resetSolidColliders();addTreeColliders(trees,.72,8);addSolidList(caveRocks,.82,8,'Fels');buildSolidGrid();
   }
   if(!BI.ice)for(let i=6;i<pts.length-6;i+=3){
     const p=pts[i];if(Math.random()>.5)continue;
@@ -4226,7 +4246,7 @@ function makeGrass(){document.body.classList.toggle('biome-wuste',!!(BI&&BI.n===
 }
 
 /* Zustand */
-let state='menu',t=0,pen=0,idx=0,dist=0,hitCd=0,cutCd=0,cutTime=0,cutWarned=false,cdT=0,cdLast=4;
+let state='menu',t=0,pen=0,idx=0,dist=0,hitCd=0,softCd=0,cutCd=0,cutTime=0,cutWarned=false,cdT=0,cdLast=4;
 let demoI=-1,demoD=0,demoV=0; // Attract-Modus: Wagen fährt im Menü-Hintergrund die Strecke
 let mmDemoCls=false;
 let introT=0,introBeep='',cdHudOff=false,introHud=null,introRestore3D=null,introLastShot='',startCamHandoff=null;
@@ -6751,12 +6771,25 @@ window.openSchool=function(){
       ? '<button class="btn sec" onclick="window.tutorialBack()">← Zurück zum Tutorial</button>'
       : '<button class="btn sec" onclick="menuCard()">Zurück zum Menü</button>'));
 };
-window.pickCareerDifficulty=function(){
-  const opt=d=>'<button class="btn '+(d.id===gameDifficulty?'':'sec')+'" style="text-align:left;align-items:flex-start" onclick="window.applyCareerDifficulty(\''+d.id+'\')"><span><b>'+d.ic+' '+d.n+'</b><br><small style="display:block;opacity:.8;font-weight:400">'+d.desc+'</small></span></button>';
+let careerDiffPick=null;
+function renderCareerDifficultyCard(){
+  const opt=d=>'<button class="btn '+(d.id===careerDiffPick?'':'sec')+'" style="text-align:left;align-items:flex-start" onclick="window.pickCareerDiffOpt(\''+d.id+'\')"><span><b>'+d.ic+' '+d.n+'</b><br><small style="display:block;opacity:.8;font-weight:400">'+d.desc+'</small></span></button>';
+  const chosen=DIFFICULTIES.find(d=>d.id===careerDiffPick)||null;
   showCard('<div style="font-size:34px;margin:4px">🏁</div><h1>Schwierigkeit wählen</h1>'+
-    '<p>Wie schnell sollen deine Gegner sein? Das gilt für deine ganze Karriere und lässt sich später in den Gameplay-Einstellungen jederzeit ändern.</p>'+
+    '<p>Wie schnell sollen deine Gegner sein? Tippe eine Stufe an und bestätige sie danach – sie gilt für deine ganze Karriere.</p>'+
     DIFFICULTIES.map(opt).join('')+
+    '<div class="up" style="display:block;text-align:left;border-left:4px solid #9ad7b4"><b>ℹ️ Später änderbar</b><br><small>Du legst dich hier nicht fest: <b>Hauptmenü → ▾ Mehr → ⚙️ Einstellungen → 🎮 Gameplay-Einstellungen → 🏁 Schwierigkeit</b> – dort kannst du den Grad jederzeit umstellen, auch mitten in der Karriere.</small></div>'+
+    '<button class="btn" onclick="window.confirmCareerDifficulty()"'+(chosen?'':' disabled')+'>'+(chosen?'✓ '+chosen.n+' übernehmen':'✓ Auswahl bestätigen')+'</button>'+
     '<p><small>Empfehlung für den Start: <b>Rookie</b> zum Eingewöhnen oder <b>Adaptiv</b>, wenn die Gegner mitwachsen sollen.</small></p>');
+}
+window.pickCareerDifficulty=function(){careerDiffPick=null;renderCareerDifficultyCard()};
+window.pickCareerDiffOpt=function(id){
+  if(!DIFFICULTIES.some(d=>d.id===id))return;
+  careerDiffPick=id;renderCareerDifficultyCard();
+};
+window.confirmCareerDifficulty=function(){
+  if(!careerDiffPick){toast('Wähle zuerst eine Schwierigkeit');return}
+  window.applyCareerDifficulty(careerDiffPick);
 };
 window.applyCareerDifficulty=function(id){
   gameDifficulty=DIFFICULTIES.some(d=>d.id===id)?id:'adaptive';
@@ -7059,7 +7092,7 @@ brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
     else if(!airborne&&runAirFlag){runAirFlag=false;runJumps++;if(resV('cooling')){resBoost=2.5;toast('🌬️ Druckspeicher-Turbo!')}}
   }
   if(play)resSpecials(dt,gas,vf,vr,on,airborne,st);
-  hitCd -= dt; 
+  hitCd -= dt; softCd -= dt; 
   cutCd -= dt;
 
   if(play && car.fuel <= 0 && sp < 18){
@@ -7218,12 +7251,26 @@ brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
     // Bewegungsstrecke geprüft. Das ersetzt bis zu 72 Einzelabfragen pro Frame.
     const sweepX=car.x-moveStartX,sweepY=car.y-moveStartY,travel2=sweepX*sweepX+sweepY*sweepY,travel=Math.sqrt(travel2);
     if(travel2>1e-8){
-      let bestT=2,hit=null;
+      let bestT=2,hit=null,softHit=null,softT=2;
       const broad=VEHICLE_COLLISION_RADIUS+84;
       const bx0=Math.floor((Math.min(moveStartX,car.x)-broad)/SOLID_CELL),bx1=Math.floor((Math.max(moveStartX,car.x)+broad)/SOLID_CELL);
       const by0=Math.floor((Math.min(moveStartY,car.y)-broad)/SOLID_CELL),by1=Math.floor((Math.max(moveStartY,car.y)+broad)/SOLID_CELL);
       const testSolidList=list=>{
         for(const ob of list){
+          if(ob.soft){
+            // Weiches Hindernis: nur Kontakt merken, niemals die Position klemmen.
+            // Der Kontaktradius ist kleiner, damit die Fahrbahn selbst frei bleibt.
+            const Rs=ob.r*.62+10,smx=moveStartX-ob.x,smy=moveStartY-ob.y,sc=smx*smx+smy*smy-Rs*Rs;
+            let su=0;
+            if(sc>0){
+              const sb=smx*sweepX+smy*sweepY,sdisc=sb*sb-travel2*sc;
+              if(sdisc<0)continue;
+              su=(-sb-Math.sqrt(sdisc))/travel2;
+              if(su<0||su>1)continue;
+            }
+            if(su<softT){softT=su;const spx=moveStartX+sweepX*su,spy=moveStartY+sweepY*su;softHit={x:ob.x,y:ob.y,r:ob.r,kind:ob.kind,wall:false,px:spx,py:spy,dx:spx-ob.x,dy:spy-ob.y};}
+            continue;
+          }
           const mx=moveStartX-ob.x,my=moveStartY-ob.y,R=ob.r+VEHICLE_COLLISION_RADIUS,c=mx*mx+my*my-R*R;
           let u=0;
           if(c>0){
@@ -7255,7 +7302,17 @@ brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
               const tx=moveStartX+sweepX*u,ty=moveStartY+sweepY*u;
               const fu=Math.max(0,Math.min(1,((tx-f.ax)*fsx+(ty-f.az)*fsy)/seg2));
               const px=f.ax+fsx*fu,py=f.az+fsy*fu,dx=tx-px,dy=ty-py;
-              if(dx*dx+dy*dy<R*R){bestT=u;hit={x:px,y:py,r:R,kind:'Gelber Zaun',wall:true,px,py,dx,dy};break;}
+              if(dx*dx+dy*dy<R*R){
+                if(f.soft){
+                  const rs=12,drx=tx-px,dry=ty-py;
+                  if(drx*drx+dry*dry<rs*rs){
+                    if(u<softT){softT=u;softHit={x:px,y:py,r:15.5,kind:'Holzzaun',wall:true,px,py,dx,dy};}
+                    break;
+                  }
+                  continue;
+                }
+                bestT=u;hit={x:px,y:py,r:R,kind:'Holzzaun',wall:true,px,py,dx,dy};break;
+              }
             }
           }
         }
@@ -7274,6 +7331,21 @@ brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
         applyImpactDamage(hit.kind,impactSpd,carSide,hit.wall);
         if(hit.wall&&Math.random()<.55)fx.push({x:hit.px,y:hit.py,vx:nx*18+(Math.random()-.5)*35,vy:ny*18+(Math.random()-.5)*35,col:'#ffd45a',sz:2.8,life:.24});
         else if(Math.random()<.7)fx.push({x:car.x,y:car.y,vx:nx*16+(Math.random()-.5)*30,vy:ny*16+(Math.random()-.5)*30,col:'#b8a58a',sz:3+Math.random()*2,life:.28});
+      }else if(softHit&&softCd<=0&&state==='play'){
+        // Durchfahren statt Anstoßen: spürbarer Tempo- und kleiner Zustandsverlust.
+        softCd=.55;
+        const spdNow=Math.hypot(car.vx,car.vy);
+        const give=Math.max(.72,1-softHit.r*.008);
+        car.vx*=give;car.vy*=give;
+        const dmg=spdNow>45?Math.max(1,Math.min(4,Math.round((1+spdNow/130)*st.dmgMult))):0;
+        if(dmg>0){
+          car.hp=Math.max(0,car.hp-dmg);
+          if(raceStats)raceStats.scrapes++;
+          for(let k=0;k<7;k++)fx.push({x:softHit.px+(Math.random()-.5)*22,y:softHit.py+(Math.random()-.5)*22,vx:(Math.random()-.5)*95,vy:(Math.random()-.5)*95,col:softHit.wall?'#c9a878':'#8fbe63',sz:2.2+Math.random()*2.4,life:.34});
+          if(softHit.wall&&Math.random()<.3)toast('🪵 '+softHit.kind+' durchbrochen · -'+dmg+'%');
+          else if(spdNow>150&&Math.random()<.18)toast('🌿 '+softHit.kind+' durchpflügt · -'+dmg+'%');
+          if(car.hp<=0){car.hp=0;triggerDNF(softHit.kind+'-Kontakt');}
+        }
       }
     }
   }
@@ -9525,7 +9597,9 @@ function putI(geo,list,fy,fs,cast,v,pal,sm){
 }
 function scat(n,a,b,mm){
   n=Math.round(n*gfxPropDensity);const out=[];
-  for(let k=0;k<n*3&&out.length<n;k++){const ii=(Math.random()*(pts.length-6)|0)+3,p=pts[ii],s=Math.random()<.5?-1:1,off=a+Math.pow(Math.random(),1.5)*(b-a);if(cvk[ii]>.02&&off<HW+140)continue;const x=p.x-Math.sin(p.h)*off*s+(Math.random()-.5)*20,y=p.y+Math.cos(p.h)*off*s+(Math.random()-.5)*20;
+  for(let k=0;k<n*5&&out.length<n;k++){const ii=(Math.random()*(pts.length-6)|0)+3,p=pts[ii],s=Math.random()<.5?-1:1,off=a+Math.pow(Math.random(),1.5)*(b-a);if(cvk[ii]>.02&&off<HW+140)continue;
+    if(Math.random()>propPatch(ii)*(.45+.55*vegStep(HW+30,HW+150,off)))continue;
+    const x=p.x-Math.sin(p.h)*off*s+(Math.random()-.5)*20,y=p.y+Math.cos(p.h)*off*s+(Math.random()-.5)*20;
     if(!M1.has(mk(x,y))&&!(seaG&&seaAt(x,y)>.08)&&!inRallyClearZone(x,y,8))out.push({x,y,r:mm[0]+Math.random()*(mm[1]-mm[0])})}
   return out;
 }
@@ -9538,7 +9612,8 @@ function addProps(fo,fc,kd){
   putI(treeGeo(fcs[1],'meadow-round'),T3[1],1.02,.92,1,.4,TP,1);
   putI(treeGeo(fcs[2],'meadow-layered'),T3[2],1.00,.86,1,.4,TP,1);
   const bc=fc.clone().offsetHSL(.02,.05,.06),rc=col((BI.deco&&BI.deco[1])||'#888');
-  putI(mgeo([[new T.IcosahedronGeometry(1,1),.6,bc,1.2,1],[new T.IcosahedronGeometry(.7,1),1,bc.clone().offsetHSL(0,0,.05),1,1]]),scat(4200,HW+18,HW+300,[5,12]),.7,1,0,.5,TP,1);
+  const decoBushes=scat(4200,HW+18,HW+300,[5,12]);addSoftList(decoBushes,.72,5,'Buschwerk');
+  putI(mgeo([[new T.IcosahedronGeometry(1,1),.6,bc,1.2,1],[new T.IcosahedronGeometry(.7,1),1,bc.clone().offsetHSL(0,0,.05),1,1]]),decoBushes,.7,1,0,.5,TP,1);
   const looseRocks=scat(2600,HW+16,HW+350,[3,16]).filter(t=>!inPool(t.x,t.y));addSolidList(looseRocks,.82,8,'Fels');
   putI(mgeo([[new T.DodecahedronGeometry(1,0),.3,rc,1,1],[new T.DodecahedronGeometry(.6,0),.5,rc.clone().offsetHSL(0,0,-.05),1,1]]),looseRocks,.6,.9,1,.5);
   if(kd==='grass')putI(mgeo([[new T.IcosahedronGeometry(.6,0),2.2,C('#ffffff'),1,0]]),scat(6000,HW+16,HW+260,[1.2,2.2]),1,1.2,0,.2,['#ffffff','#ffd84a','#ff8fb3','#b58cff','#ff6a4a'].map(C));
@@ -9736,7 +9811,7 @@ function biomeProps(st,fo,fc,kd){
   const palmParts=(fcol)=>{const t=[[Cy(.1,.14,1.3).translate(0,0,0),.65,C('#7a5d3c'),1.3,0],[Cy(.08,.1,1.3).translate(.12,0,0),1.9,C('#7a5d3c'),1.3,0],[Cy(.07,.08,1.2).translate(.3,0,0),3.1,C('#86683f'),1.2,0]];
     for(const g of frond(8,1.9,1.15,.34))t.push([g,3.7,fcol,1.9,0]);t.push([Ic(.13,0).translate(.38,0,.05),3.55,C('#5a3b22'),.2,0]);return t};
   const flat=(r,sx,sy,sz,dx,dz)=>Ic(r,1).scale(sx,sy,sz).translate(dx||0,0,dz||0);
-  const bushes=(n,a,b,mm,colr,cast)=>put([[Ic(1,1).scale(1,.75,1),.6,colr,1.2,1],[Ic(.7,1).translate(.6,0,.2),.5,colr.clone().offsetHSL(0,0,.05),1,1]],scat(n,a,b,mm),.7,1,cast?1:0,.5,null);
+  const bushes=(n,a,b,mm,colr,cast)=>{const list=scat(n,a,b,mm);addSoftList(list,.72,5,'Buschwerk');put([[Ic(1,1).scale(1,.75,1),.6,colr,1.2,1],[Ic(.7,1).translate(.6,0,.2),.5,colr.clone().offsetHSL(0,0,.05),1,1]],list,.7,1,cast?1:0,.5,null)};
   const rocks=(n,a,b,mm,colr)=>{const list=scat(n,a,b,mm).filter(t=>!inPool(t.x,t.y));addSolidList(list,.78,7,'Fels');put([[new P.DodecahedronGeometry(1,0),.3,colr,1,1],[new P.DodecahedronGeometry(.6,0).translate(.8,0,.3),.2,colr.clone().offsetHSL(0,0,-.05),1,1]],list,.6,.95,1,.5,null)};
 
   if(st==='volcano'){
@@ -10173,13 +10248,16 @@ function addFences(){
     const side=Math.sin(i*.007+sd*2)>0?1:-1,off=HW+26,ax=p.x-Math.sin(p.h)*off*side,az=p.y+Math.cos(p.h)*off*side,bx=q.x-Math.sin(q.h)*off*side,bz=q.y+Math.cos(q.h)*off*side;
     if(inRallyClearZone((ax+bx)*.5,(az+bz)*.5,10))continue;
     const ay=tH(ax,az),by=tH(bx,bz);
-    posts.push([ax,ay,az]);rails.push([ax,ay,az,bx,by,bz]);
-    fenceColliders.push({ax,az,bx,bz,r:15.5});
+    // Morsche Felder (obere Latte fehlt) geben beim Durchfahren nach,
+    // der Rest bleibt eine feste Holzwand.
+    const soft=Math.sin(i*1.7+sd*3.1)>.42;
+    posts.push([ax,ay,az]);rails.push([ax,ay,az,bx,by,bz,soft]);
+    fenceColliders.push({ax,az,bx,bz,r:15.5,soft});
   }
   if(!posts.length)return;
   const pm=new T.InstancedMesh(new T.BoxGeometry(1.8,11,1.8),M,posts.length),rm_=new T.InstancedMesh(new T.BoxGeometry(1,1.6,1.1),M,rails.length*2),o=new T.Object3D();
   posts.forEach((a,i)=>{o.position.set(a[0],a[1]+5,a[2]);o.rotation.set(0,0,0);o.scale.set(1,1,1);o.updateMatrix();pm.setMatrixAt(i,o.matrix)});
-  rails.forEach((r,i)=>{const dx=r[3]-r[0],dz=r[5]-r[2],L=Math.hypot(dx,dz);for(let k=0;k<2;k++){o.position.set((r[0]+r[3])/2,(r[1]+r[4])/2+4+k*4,(r[2]+r[5])/2);o.rotation.set(0,-Math.atan2(dz,dx),Math.atan2(r[4]-r[1],L));o.scale.set(L,1,1);o.updateMatrix();rm_.setMatrixAt(i*2+k,o.matrix)}});
+  rails.forEach((r,i)=>{const dx=r[3]-r[0],dz=r[5]-r[2],L=Math.hypot(dx,dz);for(let k=0;k<2;k++){const gone=!!r[6]&&k===1;o.position.set((r[0]+r[3])/2,(r[1]+r[4])/2+4+k*4,(r[2]+r[5])/2);o.rotation.set(0,-Math.atan2(dz,dx),Math.atan2(r[4]-r[1],L));o.scale.set(gone?0:L,1,1);o.updateMatrix();rm_.setMatrixAt(i*2+k,o.matrix)}});
   rm_.frustumCulled=pm.frustumCulled=false;pm.castShadow=rm_.castShadow=false;world.add(pm,rm_);buildFenceGrid();
 }
 /* ===== Flutlicht-Pool =====
@@ -10611,13 +10689,13 @@ function build(){
   const tl=(typeof trees!=='undefined'&&trees)||[];
   const base=tl.filter(t=>t.f).slice(0,4500),ot=tl.filter(t=>!t.f).slice(0,4000),fo=base.slice();
   // Die tatsächlich instanzierten Bäume und Felsbrocken bekommen dieselben physischen Collider wie die 2D-Bäume.
-  addSolidList(ot.filter(t=>!inPool(t.x,t.y)),.62,8,'Fels');
+  addTreeColliders(ot.filter(t=>!inPool(t.x,t.y)),.62,8,15);
   for(const t of base)for(let k=0;k<2;k++){const a=Math.random()*6.28,dd=t.r*(1.2+Math.random()*2.2),x=t.x+Math.cos(a)*dd,y=t.y+Math.sin(a)*dd;if(!M2.has(mk(x,y)))fo.push({x,y,r:t.r*(.75+Math.random()*.45)})}
 
   const fc=col((BI.fDeco&&BI.fDeco[0])||'#2f6e4a');
   const rock=new T.DodecahedronGeometry(1,0);rock.translate(0,.3,0);
   fo.push(...scat(2600,HW+36,HW+900,[7,13]).filter(t=>Math.sin(t.x*.0055+1)*Math.cos(t.y*.0048)>-.15),...scat(900,HW+36,HW+130,[7,12]));
-  addSolidList(fo.filter(t=>!inPool(t.x,t.y)),.58,8,'Baum');
+  addTreeColliders(fo.filter(t=>!inPool(t.x,t.y)),.58,8,18);
   {let okB=false;if(BIOME3[bst3()]){try{biomeProps(bst3(),fo,fc,kd);okB=true}catch(e){console.warn('Biom-Props',e)}}if(!okB)addProps(fo,fc,kd)}addFences();try{addBarriers()}catch(e){console.warn('Banden',e)}addRallyCrowds();try{addRoadLamps()}catch(e){console.warn('Straßenlaternen',e)}try{addAlpinePassDetails()}catch(e){console.warn('Alpenpass-Details',e)}try{addNightReflectors()}catch(e){console.warn('Nacht-Reflektoren',e)}setupGrass(!BI.ice&&BI.n!=='Schnee');addScenicHouses();try{addBiomeLandmarks()}catch(e){console.warn('Biom-Objekte',e)}try{addMicroLandscapeProps()}catch(e){console.warn('Kleine Landschaftsdetails',e)}buildBg();
   world.add(inst(rock,col((BI.deco&&BI.deco[1])||'#888'),ot.filter(t=>!inPool(t.x,t.y)),.5,.7));
   buildSolidGrid();buildFenceGrid();
