@@ -1,0 +1,24 @@
+{
+  "name": "Rally Stage",
+  "short_name": "Rally Stage",
+  "description": "Rallye-Karrieresimulation mit Weltmeisterschaft, Garage, Forschung und Rallye-Schule.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#101512",
+  "theme_color": "#101512",
+  "lang": "de",
+  "categories": [
+    "games",
+    "sports"
+  ],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
