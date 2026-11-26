@@ -486,6 +486,7 @@ try{
 }catch(e){}
 let gfxShadowRes=2048,gfxShadowDist=500,gfxGrassDist=960,gfxGrassDensity=100,camDistScale=1;
 let egoShake=1; // Kamerawackeln in der Ego-Ansicht (0 = aus, 1 = Standard, 1.5 = stark)
+let ghostRivals=3; // Anzahl der eingeblendeten Geisterrivalen (0 = aus)
 let gfxAntialias=null,activeGfxAntialias=null; // null = automatische Geräteerkennung; WebGL-AA wird beim Rendererstart gesetzt
 let gfxAdvancedLighting=false; // Raytracing-inspirierte Echtzeitbeleuchtung mit weichen Lichtübergängen
 let gfxRenderScale=1,gfxFpsCap=0,gfxViewDist=1,gfxPropDensity=1,gfxAutoQ=true,gfxShowFps=false; // v85
@@ -538,7 +539,8 @@ try{
   {const g=(k,d)=>{const x=Number(localStorage.getItem(k));return localStorage.getItem(k)!==null&&isFinite(x)?x:d};
    gfxRenderScale=Math.max(.5,Math.min(1,g('rallyGfxScale',1)));gfxFpsCap=[0,30,60].includes(g('rallyGfxFps',0))?g('rallyGfxFps',0):0;
    gfxViewDist=Math.max(.5,Math.min(1.25,g('rallyGfxView',1)));gfxPropDensity=Math.max(.25,Math.min(1.5,g('rallyGfxProps',1)));
-   gfxAutoQ=localStorage.getItem('rallyGfxAutoQ')!=='0';gfxShowFps=localStorage.getItem('rallyGfxShowFps')==='1'}
+   gfxAutoQ=localStorage.getItem('rallyGfxAutoQ')!=='0';gfxShowFps=localStorage.getItem('rallyGfxShowFps')==='1';
+   ghostRivals=Math.round(Number(localStorage.getItem('rallyGhosts')??3));ghostRivals=isFinite(ghostRivals)?Math.max(0,Math.min(6,ghostRivals)):3}
 }catch(e){}
 function gfxResLabel(i){const L=LANG==='en'?['Off','Low (512)','Medium (1024)','High (2048)','Very high (4096)']:['Aus','Niedrig (512)','Mittel (1024)','Hoch (2048)','Sehr hoch (4096)'];return L[Math.max(0,Math.min(4,i))]}
 function gfxGrassLabel(v){v=Number(v);return v<=0?(LANG==='en'?'Off':'Aus'):String(Math.round(v))}
@@ -596,6 +598,7 @@ function persistOptionsSettings(){
     localStorage.setItem('rallyGfxScale',String(gfxRenderScale));localStorage.setItem('rallyGfxFps',String(gfxFpsCap));
     localStorage.setItem('rallyGfxView',String(gfxViewDist));localStorage.setItem('rallyGfxProps',String(gfxPropDensity));
     localStorage.setItem('rallyGfxAutoQ',gfxAutoQ?'1':'0');localStorage.setItem('rallyGfxShowFps',gfxShowFps?'1':'0');
+    localStorage.setItem('rallyGhosts',String(ghostRivals));
   }catch(e){ok=false;console.warn('Einstellungen konnten nicht gespeichert werden',e)}
   return ok;
 }
@@ -681,7 +684,7 @@ window.resetGfxSettings=function(){
   if(typeof window.applyGfxSettings==='function')window.applyGfxSettings();
   window.openGfxSettings();
 };
-window.resetGameplaySettings=function(){camDistScale=1;egoShake=1;persistOptionsSettings();window.openGameplaySettings();};
+window.resetGameplaySettings=function(){camDistScale=1;egoShake=1;ghostRivals=3;persistOptionsSettings();window.openGameplaySettings();};
 window.finishGfxSettings=function(){
   const ok=persistOptionsSettings();
   if(!ok)toast('Speichern im Browser nicht möglich – bitte Website-Speicher erlauben.');
@@ -4263,13 +4266,17 @@ window.updateGfxAAUI=function(){
 window.reloadForGfxAA=function(){try{if(typeof saveGame==='function')saveGame();}catch(e){}window.location.reload();};
 window.openGameplaySettings=function(){
   const lab='display:block;text-align:left;margin:18px 4px 6px',pc=Math.round(camDistScale*100),sh=Math.round(egoShake*100);
-  showCard('<h1>🎮 Gameplay-Einstellungen</h1><p>Stelle Kamera-Abstand und das Kamerawackeln in der Ego-Ansicht ein. Änderungen wirken sofort im Rennen und bleiben gespeichert.</p>'+
+  showCard('<h1>🎮 Gameplay-Einstellungen</h1><p>Stelle Kamera-Abstand, Kamerawackeln und die Geisterrivalen ein. Änderungen wirken sofort im Rennen und bleiben gespeichert.</p>'+
     '<label style="'+lab+'">📷 Kamera-Abstand zum Auto: <b id="camDistValue">'+pc+' %</b></label>'+
     '<input type="range" min="60" max="180" step="5" value="'+pc+'" style="width:100%" oninput="window.updateGfxSlider(\'cam\',this.value,\'camDistValue\')">'+
     '<div style="display:flex;justify-content:space-between;font-size:12px;opacity:.65;margin:2px 4px 0"><span>60 %</span><span>100 %</span><span>180 %</span></div>'+
     '<label style="'+lab+'">🎥 Kamerawackeln (Ego): <b id="egoShakeValue">'+sh+' %</b></label>'+
     '<input type="range" min="0" max="150" step="5" value="'+sh+'" style="width:100%" oninput="window.updateGfxSlider(\'shake\',this.value,\'egoShakeValue\')">'+
     '<div style="display:flex;justify-content:space-between;font-size:12px;opacity:.65;margin:2px 4px 0"><span>0 % (ruhig)</span><span>100 %</span><span>150 % (stark)</span></div>'+
+    '<label style="'+lab+'">👻 Geisterrivalen auf der Strecke: <b id="ghostCountValue">'+ghostRivals+'</b></label>'+
+    '<input type="range" min="0" max="6" step="1" value="'+ghostRivals+'" style="width:100%" oninput="window.setGhostCountFromUI(this.value)">'+
+    '<div style="display:flex;justify-content:space-between;font-size:12px;opacity:.65;margin:2px 4px 0"><span>0 (aus)</span><span>3</span><span>6</span></div>'+
+    '<p style="font-size:12px;opacity:.7;text-align:left;margin:6px 4px 0">Die nächstgelegenen Konkurrenten fahren als durchscheinende Geister mit Namen live neben dir – sie sind nur sichtbar und blockieren nicht.</p>'+
     '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn sec" onclick="resetGameplaySettings()">Zurücksetzen</button><button class="btn" onclick="finishGameplaySettings()">Fertig</button></div><button class="btn sec" onclick="openSettings()">Zurück</button>');
 };
 window.menuCard=function(){
@@ -10326,6 +10333,8 @@ window.openLiveryDesigner=function(){
 window.setLiveryTemplate=function(i){liveryTemplateIndex=Number.isInteger(i)?Math.max(-1,Math.min(TEAM_LIVERY_ART.length-1,i)):-1;lanciaBodyLiveryKey='';lastLiveryKey='';updateCarLivery();saveGame();window.openLiveryDesigner();};
 window.setLiveryColor=function(c){liveryMainColor=(typeof c==='string'&&/^#[0-9a-f]{6}$/i.test(c))?c:'';lanciaBodyLiveryKey='';lastLiveryKey='';updateCarLivery();saveGame();window.openLiveryDesigner();};
 let lanciaBodySourceImage=null,lanciaBodyLiveryCanvas=null,lanciaBodyLiveryTexture=null,lanciaBodyMaterials=[],lanciaBodyLiveryKey='';
+/* Schadens-Visualisierung: Stufe, saubere Lackierung als Cache und Lackiermaske */
+let dmgStage=-1,dmgClean=null,dmgMask=null;
 function refreshLanciaBodyTexture(){
   if(!lanciaBodySourceImage)return;
   const team=teamInfo(),artIndex=liveryTemplateIndex>=0?liveryTemplateIndex:((team.id|0)%TEAM_LIVERY_ART.length+TEAM_LIVERY_ART.length)%TEAM_LIVERY_ART.length,art=TEAM_LIVERY_ART[artIndex];
@@ -10433,6 +10442,14 @@ function refreshLanciaBodyTexture(){
   ctx.translate(28.5,672);ctx.rotate(-Math.PI/2);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=light;
   ctx.font='900 23px Arial,sans-serif';ctx.fillText(art.tag,0,0,325);
   ctx.restore();
+
+  // Saubere Lackierung zwischenspeichern: Schäden werden später ohne den teuren
+  // Neuaufbau der Livree nur noch auf diese Kopie gezeichnet.
+  if(!dmgClean)dmgClean=document.createElement('canvas');
+  if(dmgClean.width!==w||dmgClean.height!==h){dmgClean.width=w;dmgClean.height=h;}
+  {const dc=dmgClean.getContext('2d');dc.clearRect(0,0,w,h);dc.drawImage(lanciaBodyLiveryCanvas,0,0);}
+  dmgMask=mask;
+  paintCarDamage(ctx,w,h,mask);
 
   if(!lanciaBodyLiveryTexture){lanciaBodyLiveryTexture=new T.CanvasTexture(lanciaBodyLiveryCanvas);lanciaBodyLiveryTexture.colorSpace=T.SRGBColorSpace;lanciaBodyLiveryTexture.flipY=false;lanciaBodyLiveryTexture.wrapS=lanciaBodyLiveryTexture.wrapT=T.RepeatWrapping;lanciaBodyLiveryTexture.anisotropy=8;}
   else lanciaBodyLiveryTexture.needsUpdate=true;
@@ -10624,6 +10641,189 @@ function carFx(){
     if(w.f)w.g.rotation.y=st;
   }
   hl.intensity=(tod===2||(pts[idx]&&pts[idx].cv))?150:0;
+  updateCarDamage();
+}
+/* ===== Realistischer Fahrzeugschaden je nach Zustand ===== */
+const DMG_TINT=['#ffffff','#f6f0e6','#e9dfd0','#d8ccba','#c3b7a5'].map(c=>new T.Color(c));
+const DMG_PUFFS=[0,0,2,5,8],DMG_FIRE=[0,0,0,0,3];
+const dmgPuffs=[],dmgFire=[];
+let dmgFxReady=false;
+function dmgRand(seed){let s=seed>>>0||1;return()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return((s>>>0)%10000)/10000}}
+function paintCarDamage(ctx,w,h,mask){
+  const st=dmgStage;if(st<=0)return;
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  const c=cv.getContext('2d'),rnd=dmgRand(1337+st*97);
+  // Abrieb/Staub: großflächige, weiche Verschmutzung
+  for(let i=0;i<5+st*5;i++){
+    const x=rnd()*w,y=rnd()*h,rr=(.04+.06*rnd())*w;
+    const g=c.createRadialGradient(x,y,0,x,y,rr);
+    g.addColorStop(0,'rgba(58,52,44,'+(.05+st*.022).toFixed(3)+')');
+    g.addColorStop(1,'rgba(58,52,44,0)');
+    c.fillStyle=g;c.beginPath();c.arc(x,y,rr,0,6.2832);c.fill();
+  }
+  // Kratzer: helle Metallspuren und dunkle Schrammen
+  const n=[0,8,20,36,62][st]||0;
+  for(let i=0;i<n;i++){
+    const x=rnd()*w,y=rnd()*h,a=(rnd()-.5)*1.2,l=(.02+.055*rnd())*w;
+    c.strokeStyle=rnd()<.55?'rgba(238,234,224,.55)':'rgba(30,28,24,.45)';
+    c.lineWidth=Math.max(1,(.0015+.0022*rnd())*w);
+    c.lineCap='round';c.beginPath();c.moveTo(x,y);
+    c.lineTo(x+Math.cos(a)*l*.6,y+Math.sin(a)*l*.6);
+    c.lineTo(x+Math.cos(a+.25)*l,y+Math.sin(a+.25)*l);c.stroke();
+  }
+  // Beulen: dunkler Kern mit hellem Rand
+  const nb=[0,0,2,5,9][st]||0;
+  for(let i=0;i<nb;i++){
+    const x=rnd()*w,y=rnd()*h,r=(.022+.032*rnd())*w;
+    const g=c.createRadialGradient(x-r*.3,y-r*.3,r*.1,x,y,r);
+    g.addColorStop(0,'rgba(214,208,194,.32)');
+    g.addColorStop(.45,'rgba(38,34,28,.34)');
+    g.addColorStop(1,'rgba(38,34,28,0)');
+    c.fillStyle=g;c.beginPath();c.arc(x,y,r,0,6.2832);c.fill();
+  }
+  // Nur auf lackierten Flächen erscheinen lassen (Glas/Reifen bleiben sauber)
+  if(mask){c.globalCompositeOperation='destination-in';c.drawImage(mask,0,0);c.globalCompositeOperation='source-over';}
+  ctx.drawImage(cv,0,0);
+}
+function repaintCarDamage(){
+  if(!lanciaBodyLiveryCanvas||!dmgClean)return;
+  const w=dmgClean.width,h=dmgClean.height,ctx=lanciaBodyLiveryCanvas.getContext('2d');
+  ctx.clearRect(0,0,w,h);ctx.drawImage(dmgClean,0,0);
+  paintCarDamage(ctx,w,h,dmgMask);
+  if(lanciaBodyLiveryTexture)lanciaBodyLiveryTexture.needsUpdate=true;
+}
+function buildDamageFx(){
+  if(dmgFxReady)return;dmgFxReady=true;
+  const c=document.createElement('canvas');c.width=c.height=64;
+  const x=c.getContext('2d'),g=x.createRadialGradient(32,32,2,32,32,31);
+  g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.5,'rgba(255,255,255,.72)');g.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=g;x.fillRect(0,0,64,64);
+  const tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;
+  for(let i=0;i<8;i++){
+    const m=new T.SpriteMaterial({map:tex,color:'#57534c',transparent:true,opacity:0,depthWrite:false});
+    const s=new T.Sprite(m);s.scale.set(4,4,1);s.position.set(18,14,0);s.visible=false;
+    car3.add(s);dmgPuffs.push({s,m,ph:i*.37});
+  }
+  for(let i=0;i<3;i++){
+    const m=new T.SpriteMaterial({map:tex,color:'#ff8a2a',transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending,fog:false});
+    const s=new T.Sprite(m);s.scale.set(3,3,1);s.position.set(19,13,0);s.visible=false;
+    car3.add(s);dmgFire.push({s,m,ph:i*.7});
+  }
+}
+function updateCarDamage(){
+  buildDamageFx();
+  const hp=Math.max(0,Math.min(100,Number(car.hp)||0));
+  const st=hp>=80?0:hp>=60?1:hp>=40?2:hp>=20?3:4;
+  if(st!==dmgStage){dmgStage=st;repaintCarDamage();}
+  if(lanciaBodyUniform)lanciaBodyUniform.value.copy(DMG_TINT[st]);
+  const now=performance.now()*.001,spd=Math.hypot(car.vx||0,car.vy||0),moving=Math.min(1,spd/140);
+  const showP=DMG_PUFFS[st]||0,showF=DMG_FIRE[st]||0;
+  for(let i=0;i<dmgPuffs.length;i++){
+    const p=dmgPuffs[i],on=i<showP;p.s.visible=on;
+    if(!on)continue;
+    const life=(now*(.5+.07*(i%3))+p.ph)%1;
+    p.s.position.set(14.5+Math.sin(now*.7+i)*1.6-life*7,18.2+life*11,(i%5-2)*1.9+Math.sin(now*.9+i*1.3)*.9);
+    const sz=7+life*12;p.s.scale.set(sz,sz,1);
+    p.m.color.set(st>=3?'#232220':'#55514a');
+    p.m.opacity=(.34+.11*(st-1))*(1-life)*(.55+moving*.6);
+  }
+  for(let i=0;i<dmgFire.length;i++){
+    const p=dmgFire[i],on=i<showF;p.s.visible=on;
+    if(!on)continue;
+    const life=(now*(1.3+i*.27)+p.ph)%1;
+    p.s.position.set(16.8+Math.sin(now*3.1+i)*.7,15.4+life*4.4,(i-1)*1.3);
+    const sz=2.1+life*3.4*(.7+Math.random()*.6);p.s.scale.set(sz,sz,1);
+    p.m.opacity=.5*(1-life)*(.55+Math.random()*.45);
+  }
+}
+/* ===== Geisterrivalen: die naechsten Konkurrenten live auf der Strecke ===== */
+const ghostRacers=[];
+let ghostFieldKey='';
+window.setGhostCountFromUI=function(v){
+  ghostRivals=Math.max(0,Math.min(6,Math.round(Number(v)||0)));
+  persistOptionsSettings();
+  const el=document.getElementById('ghostCountValue');if(el)el.textContent=String(ghostRivals);
+  if(typeof ghostsRebuild==='function')ghostsRebuild(true);
+};
+function ghostTagSprite(name,color){
+  const c=document.createElement('canvas');c.width=320;c.height=72;
+  const x=c.getContext('2d');
+  x.fillStyle='rgba(8,12,16,.62)';x.beginPath();x.roundRect(4,10,312,52,14);x.fill();
+  x.strokeStyle=color;x.lineWidth=3;x.beginPath();x.roundRect(4,10,312,52,14);x.stroke();
+  x.fillStyle='#ffffff';x.font='700 28px "Chakra Petch",Arial,sans-serif';x.textAlign='center';x.textBaseline='middle';
+  x.fillText(String(name||'RIVALE').toUpperCase(),160,36,296);
+  const tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;
+  const m=new T.SpriteMaterial({map:tex,transparent:true,depthTest:false,depthWrite:false});
+  const s=new T.Sprite(m);s.scale.set(20,4.5,1);s.position.set(0,25,0);s.renderOrder=997;
+  return s;
+}
+function makeGhostCar(color,label){
+  const g=new T.Group();
+  const mat=new T.MeshBasicMaterial({color,transparent:true,opacity:.28,depthWrite:false});
+  const bright=new T.MeshBasicMaterial({color,transparent:true,opacity:.42,depthWrite:false});
+  const body=new T.Mesh(new T.BoxGeometry(26,7,17),mat);body.position.y=7.2;g.add(body);
+  const cabin=new T.Mesh(new T.BoxGeometry(12.5,5.6,14.5),mat);cabin.position.set(-2.6,12.6,0);g.add(cabin);
+  const wing=new T.Mesh(new T.BoxGeometry(2.8,1.2,16),bright);wing.position.set(-12.8,12.6,0);g.add(wing);
+  const wg=new T.CylinderGeometry(4.2,4.2,3,10);wg.rotateX(Math.PI/2);
+  for(const [wx,wz] of [[9.2,-8.2],[9.2,8.2],[-9.2,-8.2],[-9.2,8.2]]){
+    const w=new T.Mesh(wg,mat);w.position.set(wx,4.2,wz);g.add(w);
+  }
+  g.add(ghostTagSprite(label,color));
+  g.visible=false;
+  return g;
+}
+function ghostStageInfo(){
+  const cd=trackCum(),d0=cd[START_TRACK_INDEX]||0;
+  const dEnd=cd[Math.max(4,pts.length-12)]||trackLen;
+  return {cd,d0,len:Math.max(1,dEnd-d0)};
+}
+function ghostPosAt(dist,cd){
+  let lo=0,hi=cd.length-1;
+  while(lo<hi){const mid=(lo+hi)>>1;if(cd[mid]<dist)lo=mid+1;else hi=mid}
+  const i=Math.max(1,Math.min(cd.length-1,lo));
+  const a=pts[i-1],b=pts[i],seg=Math.max(.001,cd[i]-cd[i-1]);
+  const f=Math.max(0,Math.min(1,(dist-cd[i-1])/seg));
+  const dh=Math.atan2(Math.sin(b.h-a.h),Math.cos(b.h-a.h));
+  return {x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f,h:a.h+dh*f};
+}
+function ghostPickField(n){
+  const arr=AI_DRIVERS.map(ai=>({ai,time:Math.max(12,aiTime(ai))}));
+  arr.sort((a,b)=>a.time-b.time);
+  const exp=Math.max(1,Math.min(arr.length,expectedPosition()||1));
+  const target=arr[exp-1].time;
+  return arr.slice().sort((a,b)=>Math.abs(a.time-target)-Math.abs(b.time-target)).slice(0,n);
+}
+function ghostsRebuild(force){
+  const key=[ghostRivals,pts.length,wmStage,altStageIdx].join('|');
+  if(!force&&key===ghostFieldKey)return;
+  ghostFieldKey=key;
+  for(const g of ghostRacers)if(g.group.parent)g.group.parent.remove(g.group);
+  ghostRacers.length=0;
+  if(ghostRivals<=0)return;
+  ghostPickField(ghostRivals).forEach((e,i,n)=>{
+    const team=TEAMS[e.ai.team]||TEAMS[0];
+    const group=makeGhostCar(team.col||'#9fd8ff',e.ai.name);
+    S.add(group);
+    ghostRacers.push({ai:e.ai,time:e.time,group,lane:(i-(n.length-1)/2)*21,startGap:0});
+  });
+}
+function updateGhosts(){
+  const running=(state==='play'||state==='count');
+  if(!running||ghostRivals<=0){for(const g of ghostRacers)g.group.visible=false;return;}
+  ghostsRebuild();
+  const info=ghostStageInfo(),cd=info.cd,elapsed=Math.max(0,Number(t)||0);
+  for(const g of ghostRacers){
+    const f=Math.min(1,elapsed/Math.max(1,g.time));
+    // Startaufstellung: die Geister stehen leicht versetzt voraus, damit sie
+    // weder sich noch das eigene Auto ueberdecken.
+    const gap=Math.min(g.startGap||0,info.len*.5);
+    const p=ghostPosAt(info.d0+gap+(info.len-gap)*f,cd);
+    const nx=-Math.sin(p.h),ny=Math.cos(p.h);
+    g.group.visible=true;
+    g.group.position.set(p.x+nx*g.lane,carYAt(p.x,p.y)+.4,p.y+ny*g.lane);
+    g.group.rotation.y=-p.h;
+    g.done=f>=1;
+  }
 }
 S.add(car3);
 car3.traverse(o=>{if(o.isMesh&&o!==sh){o.castShadow=true;o.receiveShadow=true;}});
@@ -12011,6 +12211,7 @@ function render3d(){
   S.fog.near+=(fogNearTarget-S.fog.near)*fogBlend;S.fog.far+=(fogFarTarget-S.fog.far)*fogBlend;
   lighting(ic,wx,y);updateExitGlow();updateGlare();updateWorldFx(y,ic);
   cullChunks();cullGrass();updFloods();
+  updateGhosts();
   R.render(S,cam3);mfxRestore();mfxOverlay(y);
 }
 /* ===== v86: Ego-Perspektive (Cockpit / Stoßstange) + Rennhighlights mit Replay ===== */
