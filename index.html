@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v106 · Weiche Hindernisse &amp; Steppen</title>
+<title>Rally Stage – Lancia Delta Integrale · v113 · Stabiles Schwierigkeitsmenü</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -21,7 +21,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:#2b4222;font-family:"C
 #hud{position:fixed;inset:0;zoom:calc(var(--ui) * var(--hud-scale,1));pointer-events:none;font-family:Bungee,Impact,"Arial Black",sans-serif;padding:0}
 .pill{position:absolute;top:14px;background:linear-gradient(160deg,rgba(26,40,30,.92),rgba(12,19,14,.94));color:var(--accent);padding:9px 15px;border-radius:14px;font-size:22px;line-height:1;min-width:86px;text-align:center;border:1px solid var(--glass-border);box-shadow:0 10px 24px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.14)}
 .pill small{display:block;font:700 10px/1 "Chakra Petch",system-ui,sans-serif;text-transform:uppercase;letter-spacing:1.1px;color:#9rb8a0;color:#9ab09e;margin-bottom:5px}
-#pT{left:calc(14px + var(--sal)/var(--ui))}#pV{right:calc(14px + var(--sar)/var(--ui))}
+#pT{left:calc(14px + var(--sal)/var(--ui))}#pV{right:calc(14px + var(--sar)/var(--ui))}#pG{right:calc(14px + var(--sar)/var(--ui));top:76px}
 #pD{left:calc(14px + var(--sal)/var(--ui));top:126px;font-size:15px;padding:8px 12px;min-width:96px}
 #pF{left:calc(14px + var(--sal)/var(--ui));top:188px;font-size:15px;padding:8px 12px;min-width:96px}
 .f-bar{height:7px;background:rgba(0,0,0,.45);border-radius:6px;overflow:hidden;margin-top:5px;border:1px solid rgba(255,255,255,.08)}
@@ -52,6 +52,11 @@ html,body{height:100%;margin:0;overflow:hidden;background:#2b4222;font-family:"C
 #ret{display:none;pointer-events:auto;line-height:1.2;background:linear-gradient(160deg,rgba(45,20,20,.9),rgba(24,12,12,.94));color:#ffb3ab;border:1.5px solid rgba(255,77,61,.6);border-radius:12px;padding:8px 13px;font:700 13px "Chakra Petch",system-ui,sans-serif;cursor:pointer;max-width:136px;box-shadow:0 8px 18px rgba(0,0,0,.4);transition:transform .12s,border-color .15s}
 #ret:hover{border-color:#ff4d3d;transform:translateY(-1px)}
 body.play #ret{display:block}
+#revBtn{display:none;position:fixed;z-index:7;left:calc(14px + env(safe-area-inset-left));bottom:calc(min(30vw,calc(130px*var(--ui)),32vh) + 24px + env(safe-area-inset-bottom));width:min(27vw,calc(116px*var(--ui)));padding:calc(7px*var(--ui)) calc(8px*var(--ui)) calc(6px*var(--ui));border-radius:14px;border:2px solid rgba(255,184,46,.8);background:linear-gradient(180deg,rgba(42,33,16,.92),rgba(16,12,7,.96));color:#ffd28a;font-weight:700;font-family:"Chakra Petch",system-ui,sans-serif;font-size:calc(11px*var(--ui));line-height:1.2;letter-spacing:.5px;text-align:center;box-shadow:0 8px 18px rgba(0,0,0,.5);cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#revBtn b{display:block;font-family:Bungee,Impact,sans-serif;font-weight:400;font-size:calc(20px*var(--ui));line-height:1;color:#ffb82e;letter-spacing:0}
+#revBtn.on{background:linear-gradient(180deg,#ffd05b,#ffb21f);color:#141d16;border-color:#fff;box-shadow:0 0 18px rgba(255,184,46,.6)}
+#revBtn.on b{color:#141d16}
+body.play #revBtn{display:block}
 #btnRow{position:absolute;left:calc(14px + var(--sal)/var(--ui));top:76px;display:flex;gap:8px;align-items:flex-start;pointer-events:none}
 /* HUD-Seitenleisten: Flex-Spalten sorgen dafür, dass ausgeschaltete Elemente
    keinen Leerraum hinterlassen. Die Richtungsanzeige bleibt oben zentriert. */
@@ -220,6 +225,8 @@ body.play #ovHud.on{display:flex}
 .card>*{flex:1 1 100%;min-width:0;margin:0;box-sizing:border-box}
 .card>.btn{margin:0;flex:1 1 100%;font-size:17px;padding:11px 18px}
 .card>.btn.sec{margin:0;flex:1 1 calc(50% - 4px);font-size:14.5px;padding:9px 12px;min-height:44px}
+.card>.btn.diffopt{text-align:left}
+.card>.btn.diffopt.on{outline:2px solid #ffd05b;outline-offset:-3px}
 .card h1{font-size:30px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.1)}
 .card h1+p{color:#a9bdb0;font-size:13.5px}
 .card p{margin:2px 0!important}
@@ -414,6 +421,7 @@ th{background:rgba(0,0,0,.25);color:var(--accent);font-weight:500;letter-spacing
   <div id="bar"><i id="prog"></i></div>
   <div class="pill" id="pT"><small>Zeit</small><span id="vT">0:00.0</span></div>
   <div class="pill" id="pV"><small>km/h</small><span id="vV">0</span></div>
+  <div class="pill" id="pG"><small>AUTO · Gang</small><span id="vG">1</span></div>
   <div class="pill" id="pD">
     <small>Zustand</small>
     <span id="vD">100%</span>
@@ -444,6 +452,7 @@ th{background:rgba(0,0,0,.25);color:var(--accent);font-weight:500;letter-spacing
   <div><button class="real" data-t="h" aria-label="Handbremse"><svg class="hsvg" viewBox="0 0 110 200" aria-hidden="true"><defs><linearGradient id="hRod" x1="0" x2="1"><stop offset="0" stop-color="#7c828b"/><stop offset=".45" stop-color="#f4f7fa"/><stop offset="1" stop-color="#5a6068"/></linearGradient><linearGradient id="hGrip" x1="0" x2="1"><stop offset="0" stop-color="#111215"/><stop offset=".42" stop-color="#3c4048"/><stop offset="1" stop-color="#111215"/></linearGradient></defs><path d="M5 196l11-42h78l11 42z" fill="#17191d" stroke="#0b0c0e" stroke-width="2"/><path d="M16 154h78l-3 12H19z" fill="#2c3037"/><rect x="24" y="174" width="62" height="6" rx="3" fill="#0d0e11"/><g class="lever"><rect x="50" y="50" width="10" height="118" rx="4" fill="url(#hRod)" stroke="#23262b" stroke-width="1.2"/><g fill="#9aa2ad"><rect x="60" y="96" width="5" height="3" rx="1"/><rect x="60" y="109" width="5" height="3" rx="1"/><rect x="60" y="122" width="5" height="3" rx="1"/><rect x="60" y="135" width="5" height="3" rx="1"/></g><rect x="40" y="8" width="30" height="56" rx="11" fill="url(#hGrip)" stroke="#090a0c" stroke-width="2"/><path d="M46 19h18M46 29h18M46 39h18M46 49h18" stroke="#636973" stroke-width="1.6" stroke-linecap="round"/><rect x="45" y="1" width="20" height="11" rx="4" fill="#ff4d3d" stroke="#6b0d07" stroke-width="1.5"/><circle class="hb-glow" cx="55" cy="6.5" r="9" fill="#ff4d3d" opacity=".45"/></g><circle cx="55" cy="168" r="9.5" fill="#aeb5bf" stroke="#1b1e23" stroke-width="2"/><circle cx="55" cy="168" r="3.5" fill="#1b1e23"/></svg></button><button class="real" data-t="g" aria-label="Gas"><svg class="gsvg" viewBox="0 0 110 200" aria-hidden="true"><defs><linearGradient id="gAl" x1="0" x2="1"><stop offset="0" stop-color="#848a94"/><stop offset=".5" stop-color="#e8edf2"/><stop offset="1" stop-color="#757b84"/></linearGradient></defs><rect x="3" y="180" width="104" height="17" rx="5" fill="#17191d" stroke="#0a0b0d" stroke-width="1.8"/><rect x="39" y="152" width="32" height="32" rx="3" fill="#525760" stroke="#181a1e" stroke-width="1.5"/><g class="ped"><rect x="13" y="8" width="84" height="156" rx="14" fill="#101215" stroke="#2c3038" stroke-width="1.5"/><rect x="18" y="13" width="74" height="146" rx="10" fill="url(#gAl)"/><g fill="#181b20"><rect x="25" y="26" width="60" height="8" rx="4"/><rect x="25" y="46" width="60" height="8" rx="4"/><rect x="25" y="66" width="60" height="8" rx="4"/><rect x="25" y="86" width="60" height="8" rx="4"/><rect x="25" y="106" width="60" height="8" rx="4"/><rect x="25" y="126" width="60" height="8" rx="4"/></g><circle cx="25" cy="20" r="2.6" fill="#4b5058"/><circle cx="85" cy="20" r="2.6" fill="#4b5058"/><circle cx="25" cy="152" r="2.6" fill="#4b5058"/><circle cx="85" cy="152" r="2.6" fill="#4b5058"/><rect class="gas-glow" x="18" y="13" width="74" height="146" rx="10" fill="#ffb82e" opacity=".28"/></g><circle cx="55" cy="179" r="6.5" fill="#b4bbc4" stroke="#1c1f24" stroke-width="2"/><circle cx="55" cy="179" r="2.4" fill="#1c1f24"/></svg></button></div>
   <button data-t="o" aria-label="Overboost">⚡ Boost</button>
 </div>
+<button id="revBtn" aria-pressed="false" aria-label="Rückwärtsgang" title="Rückwärtsgang (Taste B)"><b>↩</b><span>Rückwärts</span></button>
 <div id="ov"><div class="card" id="card"></div></div>
 <div id="padCursor" aria-hidden="true"><svg viewBox="0 0 28 36"><path d="M2 1.5v27l7.2-7.1 5.1 12 5-2.2-5.1-12H25z" fill="#fff" stroke="#111a12" stroke-width="2" stroke-linejoin="round"/><path d="M4.2 5.5v18l4.7-4.5 4.9 11.5 2.1-.9-4.9-11.5 8.4-.1z" fill="#ffbf38" opacity=".38"/></svg></div>
 <!-- Lancia-Modell liegt als cachebare Datei unter assets/lancia.glb -->
@@ -457,7 +466,7 @@ let trackSlopes=null,useCustom=false,customTrack=null,slopeSm=0;
 let RD=1,VS=.6,qMul=1,frameDt=1/60,simAcc=0;
 let hudScale=1;try{hudScale=Math.max(.8,Math.min(1.3,Number(localStorage.getItem('rallyHudScale'))||1))}catch(e){}
 function applyHudScale(v){hudScale=Math.max(.8,Math.min(1.3,Number(v)||1));document.documentElement.style.setProperty('--hud-scale',hudScale.toFixed(2));try{localStorage.setItem('rallyHudScale',String(hudScale))}catch(e){}}
-const HUD_PARTS=[['bar','Streckenfortschritt'],['pT','Zeit'],['pV','Geschwindigkeit'],['pD','Fahrzeugzustand'],['pF','Tankanzeige'],['notes','Hinweise & Ansagen'],['researchHud','Forschungs-Telemetrie'],['btnRow','Ansage-Schaltfläche'],['mm','Minikarte'],['ovHud','Zusatzanzeigen']];
+const HUD_PARTS=[['bar','Streckenfortschritt'],['pT','Zeit'],['pV','Geschwindigkeit'],['pG','Ganganzeige'],['pD','Fahrzeugzustand'],['pF','Tankanzeige'],['notes','Hinweise & Ansagen'],['researchHud','Forschungs-Telemetrie'],['btnRow','Ansage-Schaltfläche'],['mm','Minikarte'],['ovHud','Zusatzanzeigen']];
 let hudVisibility={};
 try{const saved=JSON.parse(localStorage.getItem('rallyHudVisibility')||'{}');HUD_PARTS.forEach(([id])=>hudVisibility[id]=saved[id]!==false)}catch(e){HUD_PARTS.forEach(([id])=>hudVisibility[id]=true)}
 function ensureHudTopLayout(){
@@ -469,7 +478,7 @@ function ensureHudTopLayout(){
   // Flex-Stacks: ausgeblendete Elemente hinterlassen keinen Leerraum.
   ['pT','pD','pF','researchHud'].forEach(id=>{const el=$(id);if(el)left.appendChild(el)});
   // Minimap bewusst oberhalb der übrigen rechten Anzeigen.
-  ['mm','pV','btnRow','ovHud'].forEach(id=>{const el=$(id);if(el)right.appendChild(el)});
+  ['mm','pG','pV','btnRow','ovHud'].forEach(id=>{const el=$(id);if(el)right.appendChild(el)});
   const notes=$('notes');if(notes)top.appendChild(notes);
   hud.appendChild(top);
 }
@@ -499,7 +508,7 @@ let ghostRivals=3; // Anzahl der eingeblendeten Geisterrivalen (0 = aus)
 let gameDifficulty='adaptive', assistBrake=false, assistLine=false, steerSens=1, padDeadzone=0.14;
 let ghostMine=true, lastExportAt=0;
 let bestTimes={}, schoolMedals={}, setupPresets={};
-let serviceTokens=2, serviceStage=-1, carCondition=100;
+let serviceStage=-1, carCondition=100;
 let raceStats=null, splits=[];
 try{
   const dl=localStorage.getItem('rallyDifficulty');if(['adaptive','rookie','pro','legend'].includes(dl))gameDifficulty=dl;
@@ -939,7 +948,7 @@ addEventListener('resize',resize);resize();
 const keys={},touch={l:0,r:0,g:0,h:0};
 const padInput={steer:0,gas:0,brake:0,handbrake:false,overboost:false};
 let activePadIndex=-1,activePadId='',padWasConnected=false;
-const padPrev={activate:false};
+const padPrev={activate:false,rev:false};
 let padCursorX=innerWidth*.5,padCursorY=innerHeight*.5,padCursorReady=false,padCursorHover=null;
 function padButtonValue(pad,index){
   const b=pad&&pad.buttons&&pad.buttons[index];
@@ -1054,6 +1063,10 @@ function pollGamepad(dt=0){
   padInput.brake=padButtonValue(pad,6); // linker Trigger
   padInput.handbrake=padButtonPressed(pad,0); // A / Cross
   padInput.overboost=padButtonPressed(pad,4); // LB / L1
+  // B / Kreis schaltet den Rückwärtsgang (nur im Fahrbetrieb).
+  const revPad=padButtonPressed(pad,1);
+  if(revPad&&!padPrev.rev&&state==='play')toggleReverseGear();
+  padPrev.rev=revPad;
   movePadCursor(pad,dt);
 }
 addEventListener('gamepadconnected',e=>{activePadIndex=e.gamepad.index;});
@@ -1066,6 +1079,7 @@ addEventListener('keydown',e=>{
   if(e.code==='Escape'){try{if(typeof RP==='undefined'||!RP.active)window.togglePause();}catch(err){}}
   if(e.code==='KeyF'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){try{window.toggleFullscreen()}catch(err){}}
   if(e.code==='KeyR'&&(state==='play'||state==='count'||state==='intro')&&!wmActive)window.requestStart();
+  if(e.code==='KeyB'&&!e.repeat&&state==='play'&&!e.ctrlKey&&!e.metaKey&&!e.altKey)toggleReverseGear();
 });
 addEventListener('keyup',e=>keys[e.code]=0);
 // Touch-Steuerung robust halten: Pointer-Capture verhindert, dass ein gedrücktes
@@ -1097,6 +1111,31 @@ window.addEventListener('pointerup',e=>releaseTouchControl(e.pointerId),{passive
 window.addEventListener('pointercancel',e=>releaseTouchControl(e.pointerId),{passive:true});
 window.addEventListener('blur',()=>{for(const id of Array.from(activeTouchPointers.keys()))releaseTouchControl(id)});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)for(const id of Array.from(activeTouchPointers.keys()))releaseTouchControl(id)});
+
+/* Rückwärtsgang: eigener Gang, damit die Bremse nur bis zum Stillstand
+   verzögert und nicht mehr automatisch rückwärts beschleunigt. */
+let reverseGear=false,hudGearTopRef=460;
+/* Automatik-Getriebe: dieselbe Übersetzung wie der Motorsound (6 Gänge), nur zur Anzeige. */
+function autoGearText(){
+  const sp=Math.hypot(car.vx,car.vy),fwd=car.vx*Math.cos(car.a)+car.vy*Math.sin(car.a);
+  if(reverseGear||fwd<-2)return 'R';
+  const ratio=Math.max(0,Math.min(1.25,sp/Math.max(80,hudGearTopRef)));
+  return String(Math.min(6,Math.floor(Math.min(5.99,ratio*5.4))+1));
+}
+function setReverseGear(on){
+  reverseGear=!!on;
+  const b=$('revBtn');if(!b)return;
+  b.classList.toggle('on',reverseGear);
+  b.setAttribute('aria-pressed',reverseGear?'true':'false');
+  const label=b.querySelector('span');if(label)label.textContent=reverseGear?'eingelegt':'Rückwärts';
+}
+function toggleReverseGear(){
+  if(state!=='play')return;
+  setReverseGear(!reverseGear);
+  if(reverseGear)toast('↩ Rückwärtsgang – Gas zum Zurücksetzen');
+}
+const revBtnEl=$('revBtn');
+if(revBtnEl)revBtnEl.addEventListener('click',e=>{e.preventDefault();toggleReverseGear();revBtnEl.blur()});
 
 /* Ansage */
 let voice=true;
@@ -1211,7 +1250,7 @@ const TIMES=[
 let BI=BIOMES[0], trackType='normal', trackLenMod='medium', weatherSel=-1, tod=0, todSel=-1;
 
 /* Power-Scaling: Upgrade-Stufen wirken schwächer, Grundtempo ist niedriger */
-const LV_STEP=0.022, LV_TOP=0.016, ACC_BASE=220, SPD_K=.80;
+const LV_STEP=0.022, LV_TOP=0.016, ACC_BASE=220, SPD_K=.80, REV_MAX=70;
 /* Teile & Autokonfiguration */
 const PARTS={
   tires:[
@@ -1479,7 +1518,7 @@ function buildSavePayload(){
     activeQuestId: activeQuest ? activeQuest.id : null,
     saveFmt: 3,
     bestTimes, schoolMedals, setupPresets,
-    serviceTokens, serviceStage, carCondition
+    serviceStage, carCondition
   };
 }
 
@@ -1551,7 +1590,6 @@ function applySavePayload(d){
   bestTimes = (d.bestTimes && typeof d.bestTimes === 'object') ? d.bestTimes : {};
   schoolMedals = (d.schoolMedals && typeof d.schoolMedals === 'object') ? d.schoolMedals : {};
   setupPresets = (d.setupPresets && typeof d.setupPresets === 'object') ? d.setupPresets : {};
-  serviceTokens = Number.isInteger(d.serviceTokens) ? Math.max(0,Math.min(3,d.serviceTokens)) : 2;
   serviceStage = typeof d.serviceStage === 'number' ? d.serviceStage : -1;
   carCondition = Number.isFinite(Number(d.carCondition)) ? Math.max(20,Math.min(100,Number(d.carCondition))) : 100;
   if(typeof d.voice === 'boolean'){
@@ -1825,7 +1863,7 @@ window.loadFromSlot=async function(slot){
 let newCareerTutorialStep=0, tutorialBackFn=null, tutorialWM=false;
 const NEW_CAREER_TUTORIAL=[
   {icon:'🏁',title:'Willkommen bei Rally Stage!',body:'Du startest eine neue Karriere. Dieses Tutorial führt dich einmal komplett durch das Spiel: Steuerung, Anzeigen, Garage mit Kaufempfehlungen, die <b>Rallye-Schule</b> zum Üben und deine erste <b>Weltmeisterschaft (WM)</b>. Am Ende startest du direkt deinen ersten WM-Lauf – jederzeit kannst du auch überspringen.'},
-  {icon:'🎮',title:'So steuerst du dein Rallyeauto',body:'<b>W / ↑</b> Gas geben &nbsp;·&nbsp; <b>S / ↓</b> Bremsen<br><b>A / D</b> oder <b>← / →</b> lenken<br><b>Leertaste</b> Handbremse – in engen Kehren kurz antippen, dann zieht das Heck herum<br><b>E / Shift</b> Overboost, sofern freigeschaltet<br><b>C</b> Kamera durchschalten · <b>M</b> Ansage an/aus · <b>R</b> Neustart<br><small>Handy/Tablet: Touch-Tasten am unteren Rand. Gamepad: Trigger = Gas/Bremse, A/Cross = Handbremse. Wichtig: vor der Kurve bremsen, nicht in der Kurve – sauber ist schneller als wild.</small>'},
+  {icon:'🎮',title:'So steuerst du dein Rallyeauto',body:'<b>W / ↑</b> Gas geben &nbsp;·&nbsp; <b>S / ↓</b> Bremsen (hält an) &nbsp;·&nbsp; <b>B</b> oder der Rückwärts-Button = Rückwärtsgang<br><b>A / D</b> oder <b>← / →</b> lenken<br><b>Leertaste</b> Handbremse – in engen Kehren kurz antippen, dann zieht das Heck herum<br><b>E / Shift</b> Overboost, sofern freigeschaltet<br><b>C</b> Kamera durchschalten · <b>M</b> Ansage an/aus · <b>R</b> Neustart<br><small>Handy/Tablet: Touch-Tasten am unteren Rand. Gamepad: Trigger = Gas/Bremse, A/Cross = Handbremse. Wichtig: vor der Kurve bremsen, nicht in der Kurve – sauber ist schneller als wild.</small>'},
   {icon:'📟',title:'Die Anzeigen im Rennen',body:'<b>„◀ Kehre 200 m“</b> = Kurve in 200 m, der Pfeil zeigt die Richtung.<br><b>🛠️ Zustand</b> = wie heil dein Auto ist. Unter etwa 35 % verliert es Leistung – dann lieber Tempo raus.<br><b>⛽ Tank</b> = Sprit. Leer bedeutet Notlauf, vor langen Etappen mehr tanken.<br><b>🏁 Balken oben</b> = wie viel Etappe noch vor dir liegt.'},
   {icon:'🔧',title:'Garage: Reifen, Motor, Chassis & Aero',body:'In der <b>Autokonfiguration</b> kaufst und verbesserst du alle vier Bauteile. Über der Liste zeigt dir die <b>🧠 Setup-Analyse</b> in jeder Kategorie, welches Teil aus deinem Besitz am besten zu Untergrund, Wetter und Streckentyp passt – mit einem Knopf zum direkten Ausrüsten. Nimm die Empfehlung, wenn du unsicher bist. Der Tankregler darüber entscheidet, wie weit du kommst: lange Etappen brauchen mehr Liter.'},
   {icon:'🔬',title:'Forschung & Entwicklung',body:'Mit Forschungspunkten (FP) schaltest du Upgrades und neue Teile frei, etwa die zweite Fertigungsstufe für höhere Teile-Level. Testläufe und Rennen bringen Telemetriepunkte (TP). Schau regelmäßig in die Forschung – dort liegt dein langfristiger Tempogewinn.'},
@@ -2815,73 +2853,105 @@ function getTireMatch(tIdx, bObj=BI, wId=weather){
   }
   return {gripMult, spdMult, offMult, weatherComp, tag};
 }
+/* Etappenprofil: Anteile von Gerade, Kurve und Beschleunigungszone. Auf losem
+   Untergrund zählt der Antritt etwas mehr, auf Asphalt die Kurven- und Top-Speed-Zonen. */
+function stageUseShares(tType,rough){
+  let straight=tType==='straight'?0.90:(tType==='curved'?0.20:0.45);
+  let corner=tType==='straight'?0.04:(tType==='curved'?0.55:0.30);
+  if(rough){straight-=0.03;corner-=0.02;}
+  return {straight,corner,accel:Math.max(0.05,1-straight-corner)};
+}
+/* Reifen-Performance für die aktuelle Etappe: Wetter, Untergrund und Reifenlevel
+   fließen in Grip, Top-Speed und Traktion ein. */
+function tirePacePerf(i,bObj,wId){
+  const tm=getTireMatch(i,bObj,wId);
+  const lv=(i===0&&resV('grip_master'))?chameleonLvFactor(wId,bObj):1+(partLvls.tires[i]-1)*LV_STEP;
+  const w=WEATHERS[wId]||WEATHERS[0];
+  const weatherGrip=Math.min(1.05,(w.gr||1)*tm.weatherComp);
+  const grip=Math.max(0.3,tm.gripMult*tirePartFactor(i,'gr')*lv*weatherGrip);
+  const spd=Math.max(0.5,tm.spdMult*tirePartFactor(i,'sp'));
+  const rough=!(bObj&&bObj.asphalt);
+  const traction=grip*(rough?(0.86+0.14*(tm.offMult||1)):1);
+  return {grip,spd,traction};
+}
+/* Gemeinsame Pace-Bewertung (höher = schneller). Sie gewichtet Geraden,
+   Kurven und Beschleunigungszonen je nach Streckentyp – Endtempo zählt auf
+   Geraden deutlich mehr als Beschleunigung. */
+function partPace(cat,i,bObj,wId,tType){
+  const p=PARTS[cat]&&PARTS[cat][i];
+  if(!p||!Number.isFinite(i))return NaN;
+  const lt=TRACK_LENGTHS.find(l=>l.id===trackLenMod)||TRACK_LENGTHS[1];
+  const longF=Math.max(0,Math.min(1,(lt.mult-0.65)/1.55));
+  const rough=!(bObj&&bObj.asphalt);
+  const sh=stageUseShares(tType,rough);
+  const lv=Math.max(1,Number(partLvls[cat]&&partLvls[cat][i])||1);
+  if(cat==='tires'){
+    const t=tirePacePerf(i,bObj,wId);
+    return sh.straight*Math.pow(t.spd,0.55)+sh.corner*Math.pow(Math.sqrt(t.grip),0.5)+sh.accel*Math.pow(t.traction,0.45);
+  }
+  if(cat==='engine'){
+    const acc=Math.max(0.3,p.acc*(1+(lv-1)*LV_STEP));
+    const top=Math.max(0.4,p.sp*(1+(lv-1)*LV_TOP));
+    const wt=Math.max(0.7,p.wt||1);
+    const pace=sh.straight*Math.pow(top,0.55)+sh.corner*Math.pow(1/Math.sqrt(wt),0.7)+sh.accel*Math.pow(acc/wt,0.45);
+    return pace-longF*Math.max(0,(p.fuel||1)-1)*0.05;
+  }
+  if(cat==='chassis'){
+    const wt=Math.max(0.7,p.wt||1);
+    let pace=sh.straight*Math.pow(1/wt,0.6)+sh.corner*Math.pow((p.turn||1)/Math.sqrt(wt),0.7)+sh.accel*Math.pow(1/wt,0.5);
+    if(rough)pace*=Math.pow(1/Math.max(0.5,p.dmg||1),0.20);
+    return pace;
+  }
+  if(cat==='aero'){
+    const df=Math.max(0.7,p.df||1),drag=Math.max(0.7,p.drag||1);
+    return (sh.straight*Math.pow(1/drag,0.6)+sh.corner*Math.pow(Math.sqrt(df),0.8))/(sh.straight+sh.corner);
+  }
+  return NaN;
+}
 function recommendTireForConditions(bObj=BI,wId=weather,tType=trackType){
   let best=null;
   for(let i=0;i<5;i++){
     if(!owned.tires[i]||!PARTS.tires[i]||PARTS.tires[i].hidden)continue;
-    const tm=getTireMatch(i,bObj,wId),p=PARTS.tires[i];
-    const level=(i===0&&resV('grip_master'))?chameleonLvFactor(wId,bObj):1+(partLvls.tires[i]-1)*LV_STEP;
-    const effectiveGrip=tm.gripMult*tirePartFactor(i,'gr')*level;
-    const weatherGrip=Math.min(1.05,(WEATHERS[wId]||WEATHERS[0]).gr*tm.weatherComp);
-    const effectiveSpeed=tm.spdMult*tirePartFactor(i,'sp');
-    const gripWeight=tType==='curved'?1.10:1;
-    const speedWeight=tType==='straight'?.42:.25;
-    const offWeight=(bObj&&bObj.asphalt)?0:.10;
-    const score=effectiveGrip*weatherGrip*gripWeight+effectiveSpeed*speedWeight+tm.offMult*offWeight;
-    if(!best||score>best.score)best={index:i,name:p.n,tag:tm.tag,score};
+    const pace=partPace('tires',i,bObj,wId,tType);
+    if(!Number.isFinite(pace))continue;
+    const tag=getTireMatch(i,bObj,wId).tag;
+    if(!best||pace>best.score)best={index:i,name:PARTS.tires[i].n,tag,score:pace};
   }
   return best;
-}
-/* Bewertet ein einzelnes Teil für die aktuellen Etappenbedingungen (1.0 = neutral). */
-function partScoreFor(cat,i,bObj,wId,tType){
-  const p=PARTS[cat]&&PARTS[cat][i];
-  if(!p)return NaN;
-  const len=TRACK_LENGTHS.find(l=>l.id===trackLenMod)||TRACK_LENGTHS[1];
-  const longF=Math.max(0,Math.min(1,(len.mult-0.65)/1.55));   // 0 = kurz … 1 = Marathon
-  const rough=(bObj&&bObj.asphalt)?0:1;
-  const tUse=tType==='curved'?1:(tType==='straight'?0.5:0.8);
-  const sUse=tType==='straight'?1:(tType==='curved'?0.55:0.8);
-  const lvBonus=Math.max(0,((partLvls[cat]&&partLvls[cat][i])||1)-1)*0.006;
-  let score=1+lvBonus;
-  if(cat==='engine'){
-    score+=0.62*tUse*(p.acc-1)+0.62*sUse*(p.sp-1)-0.55*(p.wt-1)-(0.32+0.55*longF)*(p.fuel-1);
-  }else if(cat==='chassis'){
-    score+=0.95*tUse*(p.turn-1)-0.5*(p.wt-1)+(0.38+0.25*rough)*(1-p.dmg);
-  }else if(cat==='aero'){
-    score+=0.9*tUse*(p.df-1)-0.7*(0.4+0.6*sUse+0.5*longF)*(p.drag-1);
-  }else if(cat==='tires'){
-    const tm=getTireMatch(i,bObj,wId);
-    score+=0.8*tm.gripMult+0.2*tm.spdMult+0.1*tm.offMult;
-  }
-  return score;
 }
 /* Empfehlung für Motor, Chassis und Aero – gleiche Idee wie bei den Reifen:
    bewertet nur Teile aus dem eigenen Besitz anhand der Bedingungen der Etappe. */
 function recommendPartForConditions(cat,bObj=BI,wId=weather,tType=trackType){
   if(cat==='tires')return recommendTireForConditions(bObj,wId,tType);
   const list=PARTS[cat]||[];
+  const rough=!(bObj&&bObj.asphalt);
   let best=null;
   list.forEach((p,i)=>{
     if(!owned[cat]||!owned[cat][i]||p.hidden)return;
-    const score=partScoreFor(cat,i,bObj,wId,tType);
+    const score=partPace(cat,i,bObj,wId,tType);
     if(!Number.isFinite(score))return;
     let tag='';
-    if(cat==='engine')tag='✅ '+(p.sp>1.15?'Viel Endgeschwindigkeit':'Starker Antritt')+' für '+(tType==='straight'?'lange Geraden':tType==='curved'?'enge Kurven':'diesen Mix');
-    else if(cat==='chassis')tag='✅ '+(p.turn>1.15?'Agiles Einlenken':(p.dmg<0.9?'Robust bei Einschlägen':'Ausgewogen'))+' für '+(tType==='curved'?'enge Kurven':'diese Etappe');
-    else if(cat==='aero')tag='✅ '+(p.df>1.25?'Viel Abtrieb':'Wenig Luftwiderstand')+' für '+(tType==='straight'?'lange Geraden':'schnelle Kurven');
+    if(cat==='engine')tag='✅ '+(p.sp>=1.12?'Hohe Endgeschwindigkeit':(p.acc>=1.2?'Starker Antritt':'Ausgewogen'))+' für '+(tType==='straight'?'lange Geraden':tType==='curved'?'enge Kurven':'diesen Mix');
+    else if(cat==='chassis')tag='✅ '+(p.turn>=1.15?'Agiles Einlenken':(p.dmg<0.9?'Robust bei Einschlägen':'Ausgewogen'))+' auf '+(rough?'losen Untergründen':'Asphalt');
+    else if(cat==='aero')tag='✅ '+(p.df>=1.25?'Viel Abtrieb':'Wenig Luftwiderstand')+' für '+(tType==='straight'?'lange Geraden':'schnelle Kurven');
     if(!best||score>best.score)best={index:i,name:p.n,tag,score};
   });
   return best;
 }
-/* Grobe Zeitwirkung eines Teils gegenüber dem aktuell ausgerüsteten – als Kaufhilfe. */
+/* Zeitwirkung eines Teils gegenüber dem aktuell ausgerüsteten – als Kaufhilfe.
+   Positiv = schneller, negativ = langsamer; die Etappenlänge skaliert mit. */
 function partGainText(cat,i){
   const envB=wmActive?BI:BIOMES[Math.max(0,mapSel)],envW=wmActive?weather:Math.max(0,weatherSel);
-  const sc=partScoreFor(cat,i,envB,envW,trackType);
-  const cur=partScoreFor(cat,equipped[cat],envB,envW,trackType);
+  const sc=partPace(cat,i,envB,envW,trackType);
+  const cur=partPace(cat,equipped[cat],envB,envW,trackType);
   if(!Number.isFinite(sc)||!Number.isFinite(cur))return '';
-  const d=(sc-cur)*12;
-  if(Math.abs(d)<0.25)return '<small style="display:block;max-width:170px;color:#9fb8a4">≈ wie dein aktuelles Teil</small>';
-  return '<small style="display:block;max-width:170px;color:'+(d<0?'#8debb0':'#ffb3ab')+'">≈ '+(d<0?'−':'+')+Math.abs(d).toFixed(1)+' s auf dieser Etappe</small>';
+  const lt=TRACK_LENGTHS.find(l=>l.id===trackLenMod)||TRACK_LENGTHS[1];
+  const d=(sc-cur)*110*lt.mult*0.35;
+  if(Math.abs(d)<0.3)return '<small style="display:block;max-width:190px;color:#9fb8a4">≈ wie dein aktuelles Teil</small>';
+  const val=Math.abs(d).toFixed(1);
+  return d>0
+    ? '<small style="display:block;max-width:190px;color:#8debb0">≈ '+val+' s schneller auf dieser Etappe</small>'
+    : '<small style="display:block;max-width:190px;color:#ffb3ab">≈ '+val+' s langsamer auf dieser Etappe</small>';
 }
 
 const SPONSORS=[
@@ -5764,11 +5834,11 @@ window.loadWMStage=function(){
       '<button class="btn sm sec" onclick="window.applyDaySetup()">🛞 Reifen für heute montieren</button></div>';
   })();
   const serviceHtml=(!wmIsFreeWeekend&&wmStage<wmLen)?'<div class="up" style="display:block;border-left:4px solid #79c9e8;margin:6px 0">'+
-    '<b style="color:#a7e2f5">🔧 Servicepark · Zustand '+Math.round(carCondition)+' %</b> <small>· Service-Tokens: '+serviceTokens+'</small><br>'+
-    '<small style="display:block;margin:3px 0 6px">Schäden bleiben jetzt über die Etappen des Wochenendes erhalten. Reparatur kostet einen Token; jeder neue WM-Lauf startet mit 2 Tokens (+1 mit Feldreparatur-Forschung).</small>'+
+    '<b style="color:#a7e2f5">🔧 Servicepark · Zustand '+Math.round(carCondition)+' %</b><br>'+
+    '<small style="display:block;margin:3px 0 6px">Schäden bleiben über die Etappen des Wochenendes erhalten. Im Servicepark kannst du das Auto kostenlos reparieren.</small>'+
     '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
-      '<button class="btn sm" onclick="window.serviceRepair(true)"'+(serviceTokens<=0||carCondition>=99.5?' disabled':'')+'>Voll reparieren (1 Token)</button>'+
-      '<button class="btn sm sec" onclick="window.serviceRepair(false)"'+(serviceTokens<=0||carCondition>=99.5?' disabled':'')+'>+35 % ausbessern (1 Token)</button>'+
+      '<button class="btn sm" onclick="window.serviceRepair(true)"'+(carCondition>=99.5?' disabled':'')+'>Voll reparieren</button>'+
+      '<button class="btn sm sec" onclick="window.serviceRepair(false)"'+(carCondition>=99.5?' disabled':'')+'>+35 % ausbessern</button>'+
     '</div></div>':'';
   const tutorialHintHtml=(tutorialWM&&wmStage===0)?'<div class="up" style="display:block;border-left:4px solid #5fd68a;background:linear-gradient(110deg,rgba(95,214,138,.13),rgba(255,255,255,.025))"><b style="color:#8debb0">🎓 Deine erste WM</b><br><small>Freitag & Samstag sind <b>Testläufe</b> – du darfst sie mit „überspringen“ auslassen. Zählen tut der <b>Sonntag</b>: dort gibt es WM-Punkte und Preisgeld. Tipp: Vorher in der Autokonfiguration die 🧠 Setup-Analyse ansehen und die Empfehlung ausrüsten.</small></div>':'';
   showCard('<h1>🏆 WM-Lauf '+(wmStage+1)+' / '+wmLen+'</h1>'+
@@ -6029,7 +6099,7 @@ window.start=function(){
   const p=pts[START_TRACK_INDEX];
   Object.assign(car,{x:p.x,y:p.y,a:p.h,vx:0,vy:0,z:0,vz:0,st:0,hbSlip:0,
   hp:(wmActive&&!wmIsFreeWeekend&&Number.isFinite(carCondition))?Math.max(20,Math.min(100,carCondition)):100,wheels:[1,1,1,1],fuel:fuelLoad,lowFuelWarn:false,limpWarn:false});
-  cam.x=p.x;cam.y=p.y;
+  cam.x=p.x;cam.y=p.y;setReverseGear(false);
   runMaxRatio=0;runJumps=0;runAirFlag=false;speedHoldSeconds=0;resShield=1;resBoost=0;resBuild=0;resLaunch=0;resRunReset();questMilestoneToast=false;
   raceStats={crashes:0,scrapes:0,offroad:0,top:0,fuelStart:fuelLoad};
   splits=[];
@@ -6285,7 +6355,7 @@ window.startNextAltStage=function(){
 
   const p=pts[START_TRACK_INDEX];
   Object.assign(car,{x:p.x,y:p.y,a:p.h,vx:0,vy:0,z:0,vz:0,st:0,hbSlip:0,fuel:Math.min(getTankCapacity(),pitTargetFuel),lowFuelWarn:false,limpWarn:false});
-  cam.x=p.x;cam.y=p.y;
+  cam.x=p.x;cam.y=p.y;setReverseGear(false);
   runMaxRatio=0;runJumps=0;runAirFlag=false;speedHoldSeconds=0;resShield=1;resBoost=0;resBuild=0;resLaunch=0;resRunReset();
   idx=START_TRACK_INDEX;nextSplit=1;cutCd=0;cutTime=0;cutWarned=false;marks=[];debris=[];fx=[];pL=pR=null;lastNoteHtml='';if(typeof window.clearRallySkidMarks==='function')window.clearRallySkidMarks();
   const wObj=WEATHERS[weather]||WEATHERS[0];
@@ -6692,15 +6762,12 @@ let schoolActive=null;
 function serviceSyncStage(){
   if(serviceStage!==wmStage){
     serviceStage=wmStage;
-    serviceTokens=Math.min(3,2+Math.round(resV('fieldrep')||0));
     carCondition=100;
   }
 }
 window.serviceRepair=function(full){
   serviceSyncStage();
-  if(serviceTokens<=0){toast('Keine Service-Tokens mehr – der nächste WM-Lauf bringt neue');return false}
   if(carCondition>=99.5){toast('Das Auto ist bereits topfit');return false}
-  serviceTokens--;
   carCondition=full?100:Math.min(100,Math.round(carCondition+35));
   saveGame();
   toast(full?'🔧 Auto vollständig repariert':'🧰 Ausgebessert: '+Math.round(carCondition)+' %');
@@ -6773,19 +6840,29 @@ window.openSchool=function(){
 };
 let careerDiffPick=null;
 function renderCareerDifficultyCard(){
-  const opt=d=>'<button class="btn '+(d.id===careerDiffPick?'':'sec')+'" style="text-align:left;align-items:flex-start" onclick="window.pickCareerDiffOpt(\''+d.id+'\')"><span><b>'+d.ic+' '+d.n+'</b><br><small style="display:block;opacity:.8;font-weight:400">'+d.desc+'</small></span></button>';
+  const opt=d=>{const on=d.id===careerDiffPick;return '<button class="btn sec diffopt'+(on?' on':'')+'" data-diff="'+d.id+'" aria-pressed="'+(on?'true':'false')+'" onclick="window.pickCareerDiffOpt(\''+d.id+'\')"><span><b><span class="diffchk" style="display:inline-block;width:1.1em;color:#ffd05b">'+(on?'✓':'')+'</span>'+d.ic+' '+d.n+'</b><br><small style="display:block;opacity:.8;font-weight:400">'+d.desc+'</small></span></button>'};
   const chosen=DIFFICULTIES.find(d=>d.id===careerDiffPick)||null;
   showCard('<div style="font-size:34px;margin:4px">🏁</div><h1>Schwierigkeit wählen</h1>'+
     '<p>Wie schnell sollen deine Gegner sein? Tippe eine Stufe an und bestätige sie danach – sie gilt für deine ganze Karriere.</p>'+
     DIFFICULTIES.map(opt).join('')+
     '<div class="up" style="display:block;text-align:left;border-left:4px solid #9ad7b4"><b>ℹ️ Später änderbar</b><br><small>Du legst dich hier nicht fest: <b>Hauptmenü → ▾ Mehr → ⚙️ Einstellungen → 🎮 Gameplay-Einstellungen → 🏁 Schwierigkeit</b> – dort kannst du den Grad jederzeit umstellen, auch mitten in der Karriere.</small></div>'+
-    '<button class="btn" onclick="window.confirmCareerDifficulty()"'+(chosen?'':' disabled')+'>'+(chosen?'✓ '+chosen.n+' übernehmen':'✓ Auswahl bestätigen')+'</button>'+
+    '<button class="btn" id="careerDiffConfirm" onclick="window.confirmCareerDifficulty()"'+(chosen?'':' disabled')+'>'+(chosen?'✓ '+chosen.n+' übernehmen':'✓ Auswahl bestätigen')+'</button>'+
     '<p><small>Empfehlung für den Start: <b>Rookie</b> zum Eingewöhnen oder <b>Adaptiv</b>, wenn die Gegner mitwachsen sollen.</small></p>');
 }
 window.pickCareerDifficulty=function(){careerDiffPick=null;renderCareerDifficultyCard()};
 window.pickCareerDiffOpt=function(id){
   if(!DIFFICULTIES.some(d=>d.id===id))return;
-  careerDiffPick=id;renderCareerDifficultyCard();
+  careerDiffPick=id;
+  const card=$('card'),opts=card?card.querySelectorAll('.diffopt'):[];
+  if(!opts.length){renderCareerDifficultyCard();return}
+  opts.forEach(b=>{
+    const on=b.getAttribute('data-diff')===id;
+    b.classList.toggle('on',on);
+    b.setAttribute('aria-pressed',on?'true':'false');
+    const chk=b.querySelector('.diffchk');if(chk)chk.textContent=on?'✓':'';
+  });
+  const cb=$('careerDiffConfirm'),chosen=DIFFICULTIES.find(d=>d.id===id);
+  if(cb&&chosen){cb.disabled=false;cb.textContent='✓ '+chosen.n+' übernehmen'}
 };
 window.confirmCareerDifficulty=function(){
   if(!careerDiffPick){toast('Wähle zuerst eine Schwierigkeit');return}
@@ -6891,11 +6968,13 @@ function update(dt){
     return;
   }
   const play=state==='play';
+  if(!play&&reverseGear)setReverseGear(false);
   chameleonTick(dt);
   let gas=0,brake=0,hb=0,tgt=0;
   if(play){
     gas=Math.max((keys.ArrowUp||keys.KeyW||touch.g)?1:0,padInput.gas);
 brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
+    if(brake>0.02)gas=0; // Die Bremse hat Vorrang vor dem Gas.
     hb=!!(keys.Space||touch.h||padInput.handbrake);
     const digitalSteer=((keys.ArrowRight||keys.KeyD||touch.r)?1:0)-((keys.ArrowLeft||keys.KeyA||touch.l)?1:0);
     tgt=Math.max(-1,Math.min(1,(digitalSteer+padInput.steer)*steerSens));
@@ -6948,6 +7027,7 @@ brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
   const airborne = car.z > 0.5;
 
   const st=getCarStats(car.fuel, true);
+  hudGearTopRef=Math.max(80,405*SPD_K*st.topSpd/st.aeroDrag);
 
   if(play){
     let burnRate = (0.10*(1-resV('fuel')) + 0.66*gas) * st.fuelRate;
@@ -6995,8 +7075,23 @@ brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
   const downforce = 1 + (st.aero - 1) * 0.9 * dfSpeed;
 
   const accel = ACC_BASE * st.acc * wheelPenalty / st.wt;
-  if(gas > 0 && !airborne) vf += accel * dt * gas * (hb ? 0.85 : 1.0);
-  if(brake > 0 && !airborne) vf -= 650 * dt * brake;
+  if(gas > 0 && !airborne){
+    if(reverseGear){
+      /* Rückwärtsgang: erst die Vorwärtsfahrt sauber abbauen, dann langsam
+         und nur bis Schrittgeschwindigkeit zurücksetzen. */
+      if(vf > 2) vf = Math.max(0, vf - 240 * dt * gas);
+      else vf = Math.max(-REV_MAX, vf - accel * 0.28 * dt * gas);
+    }else{
+      vf += accel * dt * gas * (hb ? 0.85 : 1.0);
+    }
+  }
+  if(brake > 0 && !airborne){
+    /* Kräftig, aber nicht schlagartig verzögern. Die Bremse hält bei 0 an und
+       leitet ohne eingelegten Rückwärtsgang keine Rückwärtsfahrt ein. */
+    const bd = 120 + 60 * Math.min(1, Math.abs(vf) / 380);
+    if(vf > 0) vf = Math.max(0, vf - bd * dt * brake);
+    else if(vf < 0) vf = Math.min(0, vf + bd * 0.75 * dt * brake);
+  }
   let slopeCap=1,slopeNow=0;
   if(trackSlopes){{const sr=trackSlopes[Math.min(trackSlopes.length-1,idx)]||0;slopeSm+=(sr-slopeSm)*Math.min(1,dt*4);slopeNow=slopeSm}if(!airborne)vf-=slopeNow*28*dt;slopeCap=1-slopeNow*.02;}
   {const he=document.getElementById('slopeHud');if(he){if(trackSlopes){const br=CT_BRUSH[Math.round(slopeNow)+2],k=br.ic+' '+br.n+' '+br.g;if(he._k!==k){he._k=k;he.textContent=k;he.style.borderColor=br.c}he.classList.add('on')}else he.classList.remove('on')}}
@@ -8510,7 +8605,7 @@ function draw(){
 
   const hc=hudCache;
   const hs=(id,v)=>{if(hc[id]!==v){hc[id]=v;$(id).textContent=v}};
-  hs('vT',fmt(t+pen));hs('vV',Math.round(Math.hypot(car.vx,car.vy)*.32));
+  hs('vT',fmt(t+pen));hs('vV',Math.round(Math.hypot(car.vx,car.vy)*.32));hs('vG',autoGearText());
   const vDEl=$('vD');
   if(vDEl){
     const dT=car.hp+'%';
@@ -8611,7 +8706,7 @@ const I18N={en:{
 exact:{'Zeit':'Time','Zustand':'Condition','⛽ Tank':'⛽ Fuel','Ansage: an':'Announcer: on','Ansage: aus':'Announcer: off','🏳️ Aufgeben':'🏳️ Give up','Sicher? Nochmal tippen':'Sure? Tap again','Rennen aufgegeben':'Race abandoned'}};
 const EN_TUT=[
 ['Welcome to Rally Stage!','You are starting a new career. This tutorial walks you through the whole game: controls, on-screen displays, the garage with buying advice, the <b>Rally School</b> for practice and your first <b>World Championship (WC)</b>. At the end you start your first WC round – you can skip at any time.'],
-['How to drive your rally car','<b>W / ↑</b> accelerate · <b>S / ↓</b> brake<br><b>A / D</b> or <b>← / →</b> steer<br><b>Space</b> handbrake – tap it briefly in tight corners to swing the rear round<br><b>E / Shift</b> overboost, if unlocked<br><b>C</b> cycle camera · <b>M</b> announcer on/off · <b>R</b> restart<br><small>Phone/tablet: touch buttons at the bottom. Gamepad: triggers = throttle/brake, A/Cross = handbrake. Brake before the corner, not in it – clean is faster than wild.</small>'],
+['How to drive your rally car','<b>W / ↑</b> accelerate · <b>S / ↓</b> brake (car stops fully) · <b>B</b> or the reverse button = reverse gear<br><b>A / D</b> or <b>← / →</b> steer<br><b>Space</b> handbrake – tap it briefly in tight corners to swing the rear round<br><b>E / Shift</b> overboost, if unlocked<br><b>C</b> cycle camera · <b>M</b> announcer on/off · <b>R</b> restart<br><small>Phone/tablet: touch buttons at the bottom. Gamepad: triggers = throttle/brake, A/Cross = handbrake. Brake before the corner, not in it – clean is faster than wild.</small>'],
 ['The on-screen displays','<b>“◀ Hairpin 200 m”</b> = corner in 200 m, the arrow shows the direction.<br><b>🛠️ Condition</b> = how intact your car is. Below about 35 % it loses power – ease off.<br><b>⛽ Fuel</b> = empty means limp mode, fill up more before long stages.<br><b>🏁 Bar at the top</b> = how much stage is still ahead.'],
 ['Garage: tyres, engine, chassis & aero','In the <b>car configuration</b> you buy and improve all four parts. Above the list the <b>🧠 Setup analysis</b> shows, for every category, which part you own suits the surface, weather and track type best – with a button to equip it directly. Take the recommendation if you are unsure. The fuel slider decides how far you get: long stages need more litres.'],
 ['Research & development','Research points (RP) unlock upgrades and new parts, such as the second manufacturing stage for higher part levels. Test runs and races give telemetry points (TP). Check research regularly – that is where your long-term pace comes from.'],
@@ -8731,7 +8826,7 @@ renderMenuCardUI();
 function updateHudFast(){
   const hc=hudCache;
   const hs=(id,v)=>{if(hc[id]!==v){hc[id]=v;$(id).textContent=v}};
-  hs('vT',fmt(t+pen));hs('vV',Math.round(Math.hypot(car.vx,car.vy)*.32));
+  hs('vT',fmt(t+pen));hs('vV',Math.round(Math.hypot(car.vx,car.vy)*.32));hs('vG',autoGearText());
   const vDEl=$('vD');
   if(vDEl){
     const dT=car.hp+'%';
@@ -8836,19 +8931,22 @@ function splitQuadMesh(mm,QPC){
 }
 function rcEdge(j,s,w,y,K){
   /* Kante links(-1)/rechts(+1) an Ring j: lateraler Offset mit Kurven-Begrenzung + Höhe */
-  const p=pts[j],o=s>0?(K.kp[j]>1e-5?Math.min(w,Math.max(w*.2,.96/K.kp[j])):w):(K.km[j]>1e-5?Math.min(w,Math.max(w*.2,.96/K.km[j])):w);
+  const ww=typeof w==='function'?w(j,s):w;
+  const p=pts[j],o=s>0?(K.kp[j]>1e-5?Math.min(ww,Math.max(ww*.2,.96/K.kp[j])):ww):(K.km[j]>1e-5?Math.min(ww,Math.max(ww*.2,.96/K.km[j])):ww);
   return [p.x-Math.sin(p.h)*s*o,y+(rh[j]||0),p.y+Math.cos(p.h)*s*o];
 }
-function ribbon(w,y,color,every){
+function ribbon(w,y,color,every,hFn){
   const P=[],I=[],UV=[],NN=[],K=ribbonCurv();let n=0;
   for(let i=0;i<pts.length-1;i++){
     if(every&&(i%every[0])>=every[1])continue;
     const a=pts[i],b=pts[i+1];
     for(const p of [a,b]){
-      const nx=-Math.sin(p.h)*w,nz=Math.cos(p.h)*w,j=p===a?i:i+1,hy=y+(rh[j]||0);
-      const oP=K.kp[j]>1e-5?Math.min(w,Math.max(w*.2,.96/K.kp[j]))/w:1;
-      const oM=K.km[j]>1e-5?Math.min(w,Math.max(w*.2,.96/K.km[j]))/w:1;
-      P.push(p.x-nx*oM,hy,p.y-nz*oM,p.x+nx*oP,hy,p.y+nz*oP);
+      const j=p===a?i:i+1,hy=y+(rh[j]||0),sn=Math.sin(p.h),cs=Math.cos(p.h);
+      const wL=typeof w==='function'?w(j,-1):w,wR=typeof w==='function'?w(j,1):w;
+      const oP=K.kp[j]>1e-5?Math.min(wR,Math.max(wR*.2,.96/K.kp[j]))/wR:1;
+      const oM=K.km[j]>1e-5?Math.min(wL,Math.max(wL*.2,.96/K.km[j]))/wL:1;
+      const hL=hFn?hFn(j,-1):0,hR=hFn?hFn(j,1):0;
+      P.push(p.x+sn*wL*oM,hy+hL,p.y-cs*wL*oM,p.x-sn*wR*oP,hy+hR,p.y+cs*wR*oP);
       {/* geglättete Normale aus dem Verlauf der jeweiligen Kante (statt der Mittellinie):
           verhindert Licht-/Schattenstreifen durch verwundete Quads und den Stufeneffekt
           an der kurveninneren Kante bei engen Steigungs-/Gefällkurven */
@@ -8867,15 +8965,16 @@ function ribbon(w,y,color,every){
   const mm=new T.Mesh(g,color&&color.isMaterial?color:new T.MeshLambertMaterial({color,side:T.DoubleSide}));
   mm.receiveShadow=true;return splitQuadMesh(mm,48);
 }
-function sideRibbon(offset,width,y,material){
+function sideRibbon(offset,width,y,material,offFn,hFn){
   const P=[],I=[],UV=[];let n=0;
   for(let i=0;i<pts.length-1;i++){
     const a=pts[i],b=pts[i+1];
     for(const p of [a,b]){
-      const nx=-Math.sin(p.h),nz=Math.cos(p.h),side=Math.sign(offset)||1;
-      const inner=Math.abs(offset)-width*.5,outer=Math.abs(offset)+width*.5,j=p===a?i:i+1;
-      const sc=ribbonScale(j,side,Math.abs(offset)+width*.5);
-      P.push(p.x+nx*side*inner*sc,y+(rh[j]||0),p.y+nz*side*inner*sc,p.x+nx*side*outer*sc,y+(rh[j]||0),p.y+nz*side*outer*sc);
+      const nx=-Math.sin(p.h),nz=Math.cos(p.h),side=Math.sign(offset)||1,j=p===a?i:i+1;
+      const base=offFn?offFn(j,side):Math.abs(offset);
+      const inner=base-width*.5,outer=base+width*.5,hh=hFn?hFn(j,side):0;
+      const sc=ribbonScale(j,side,base+width*.5);
+      P.push(p.x+nx*side*inner*sc,y+(rh[j]||0)+hh,p.y+nz*side*inner*sc,p.x+nx*side*outer*sc,y+(rh[j]||0)+hh,p.y+nz*side*outer*sc);
       const v=j*STEP/120;UV.push(0,v,1,v);
     }
     I.push(n,n+1,n+2,n+1,n+3,n+2);n+=4;
@@ -10679,8 +10778,9 @@ function build(){
    if(desert){roadMat.emissive=new T.Color('#3e2810');roadMat.emissiveIntensity=.045;}
   world.add(ribbon(HW,.15,roadMat));
   if(BI.asphalt){
-    world.add(sideRibbon(HW-3.2,2.0,.28,new T.MeshLambertMaterial({color:BI.n==='Vulkan'?'#d5a18a':'#e9e7d8'})));
-    world.add(sideRibbon(-(HW-3.2),2.0,.28,new T.MeshLambertMaterial({color:BI.n==='Vulkan'?'#d5a18a':'#e9e7d8'})));
+    const lineMat=new T.MeshLambertMaterial({color:BI.n==='Vulkan'?'#d5a18a':'#e9e7d8'});
+    world.add(sideRibbon(HW-3.2,2.0,.28,lineMat));
+    world.add(sideRibbon(-(HW-3.2),2.0,.28,lineMat));
     world.add(ribbon(2.2,.31,col('#e8e8d0'),[6,3]));
   }
   (typeof ramps!=='undefined'?ramps:[]).forEach(r=>world.add(ramp(r)));
