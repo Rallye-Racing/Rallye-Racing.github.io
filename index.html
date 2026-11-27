@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v118 · Three.js r187</title>
+<title>Rally Stage – Lancia Delta Integrale · v119 · Three.js r187</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -1274,8 +1274,13 @@ function driveUpdate(dt,vf,gas,air){
   let g=DRIVE.gear;
   // Automatik: kurz vor der Nenndrehzahl hoch, weit unten wieder zurück.
   if(!air){
-    if(g<6&&sp>top*GEAR_TOP[g-1]*.985&&DRIVE.cut<=0){g++;DRIVE.cut=.10}
-    else if(g>1&&sp<top*GEAR_TOP[g-2]*.62&&DRIVE.cut<=0){g--;DRIVE.cut=.09}
+    if(g<6&&sp>top*GEAR_TOP[g-1]*.985&&DRIVE.cut<=0){
+      g++;DRIVE.cut=.10;
+      if(typeof motorVolume==='number'&&motorVolume>0)sndEvent('shiftUp');
+    }else if(g>1&&sp<top*GEAR_TOP[g-2]*.62&&DRIVE.cut<=0){
+      g--;DRIVE.cut=.09;
+      if(sp>40&&typeof motorVolume==='number'&&motorVolume>0)sndEvent('shiftDown');
+    }
   }
   DRIVE.gear=g;
   DRIVE.rpm=950+Math.min(1.02,sp/Math.max(30,top*GEAR_TOP[g-1]))*6100;
@@ -6118,6 +6123,22 @@ function sndEvent(name,v){
       case 'wheel':sndTone('sine',720,690,.5,.09);sndTone('sine',1140,1100,.4,.06);sndNoise(.2,'bandpass',2400,900,.12,1.5);break;
       case 'blow':sndNoise(.42,'highpass',1800,5200,.085,.7);sndTone('sine',2600,1500,.36,.012);break;
       case 'pop':sndNoise(.07,'bandpass',420+Math.random()*320,180,.12+Math.random()*.06,1.4);break;
+      /* v119: Schaltgeräusche. Mechanisches Einrasten der Schaltgabel (kurzer
+         metallischer Klack + sattes Tiefton-Einrasten), beim Runterschalten
+         etwas weicher. Beim Hochschalten unter Last zusätzlich ein kurzer
+         Ladedruck-Seufzer, wie ihn ein sequentielles Rallyegetriebe macht. */
+      case 'shiftUp':{
+        sndNoise(.045,'bandpass',3200+Math.random()*500,1500,.085,2.6);
+        sndNoise(.10,'highpass',700,2600,.045,.7,.012);
+        sndTone('triangle',1250,820,.05,.042);
+        sndTone('sine',165,110,.09,.075);
+        if(typeof DRIVE!=='undefined'&&DRIVE.boost>.55)sndNoise(.16,'highpass',2200,5200,.035,.7);
+        break}
+      case 'shiftDown':{
+        sndNoise(.05,'bandpass',2400+Math.random()*400,1200,.07,2.2);
+        sndTone('triangle',900,700,.05,.03);
+        sndTone('sine',140,105,.08,.055);
+        break}
       case 'pit':for(let k=0;k<5;k++){sndNoise(.07,'bandpass',3100,2700,.07,2,.1+k*.11);sndTone('square',180,160,.05,.03,.1+k*.11)}break;
       case 'finish':[523.25,659.25,783.99,1046.5].forEach((f,i)=>{sndTone('triangle',f,f,.34,.13,i*.13);sndTone('sine',f*2,f*2,.22,.04,i*.13)});break;
     }
@@ -14021,8 +14042,21 @@ function cockpitUpdate(show){
   }
   CK.root.position.copy(car3.position);CK.root.quaternion.copy(_q1);
   CK.wheel.rotation.z=-rzClamp(FP.st,-1,1)*1.7;
-  const spd=Math.hypot(car.vx,car.vy),ratio=Math.min(1,spd/900),gp=Math.min(5.99,ratio*5.4),gear=Math.floor(gp)+1,frac=gp-Math.floor(gp);
-  CK.rpm+=((ratio<.012?950:1350+frac*(gear===1?4700:4300))-CK.rpm)*.25;
+  const spd=Math.hypot(car.vx,car.vy),ratio=Math.min(1,spd/900);
+  /* v119: Im Rennen liefert die Physik Gang und Drehzahl. Bei jedem Gangwechsel
+     springt der Drehzahlmesser sofort auf die Drehzahl des neuen Gangs, und der
+     Ladedruck fällt kurz auf 0 – vorher hing der Zeiger nur am Tempo und stieg
+     beim Schalten einfach weiter. */
+  const liveDrive=(state==='play'||state==='count')&&typeof DRIVE!=='undefined'&&DRIVE.rpm>0;
+  let gear,ckRpm;
+  if(liveDrive){gear=DRIVE.gear;ckRpm=DRIVE.rpm;}
+  else{const gp=Math.min(5.99,ratio*5.4);gear=Math.floor(gp)+1;ckRpm=ratio<.012?950:1350+(gp-Math.floor(gp))*(gear===1?4700:4300);}
+  if(gear!==CK.gear){
+    CK.gear=gear;CK.rpm=ckRpm;
+    CK.needleValues[1]=rzClamp(ckRpm/8000,0,1);  // Zeiger springt direkt mit
+    CK.needleValues[2]=0;                       // Ladedruck bricht beim Schalten ein
+  }
+  CK.rpm+=(ckRpm-CK.rpm)*.25;
   const kmh=Math.round(spd*.32);
   // Innenraumlicht: bei Nacht voll an, in der Dämmerung gedimmt.
   const nightF=typeof tod==='number'?(tod===2?1:tod===1?.35:0):0;
