@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v115 · Three.js r187, Messanzeige &amp; Teamwahl</title>
+<title>Rally Stage – Lancia Delta Integrale · v116 · Three.js r187 · Performance-Paket</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -504,7 +504,7 @@ try{
   ambientVolume=Math.max(0,Math.min(1.5,Number(localStorage.getItem('rallyAmbientVolume')??1)));
   musicVolume=0;
 }catch(e){}
-let gfxShadowRes=2048,gfxShadowDist=500,gfxGrassDist=960,gfxGrassDensity=100,camDistScale=1;
+let gfxShadowRes=2048,gfxShadowDist=220,gfxGrassDist=960,gfxGrassDensity=100,camDistScale=1;
 let egoShake=1; // Kamerawackeln in der Ego-Ansicht (0 = aus, 1 = Standard, 1.5 = stark)
 let ghostRivals=3; // Anzahl der eingeblendeten Geisterrivalen (0 = aus)
 
@@ -729,12 +729,14 @@ let gfxRenderScale=1,gfxFpsCap=0,gfxViewDist=1,gfxPropDensity=1,gfxAutoQ=true,gf
 const FXHEAVY=!((navigator.hardwareConcurrency||4)<=4||(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches));
 let gfxSharp=FXHEAVY?1:0; // 0 Standard, 1 Scharf, 2 Maximal (Render-Auflösung)
 try{const sv=localStorage.getItem('rallyGfxSharp');if(sv!==null&&[0,1,2].includes(Number(sv)))gfxSharp=Number(sv)}catch(e){}
-const gfxPxCap=()=>[1.25,2,3][gfxSharp],gfxPxBudget=()=>[2.6e6,4.8e6,9e6][gfxSharp],gfxQMin=()=>[.55,.8,1][gfxSharp];
+/* v116: Renderauflösung gedeckelt. Oberhalb von ~3,7 MP gewinnt das Bild kaum
+   noch Schärfe, kostet aber linear FPS – der Rest wird hochskaliert. */
+const gfxPxCap=()=>[1.25,1.6,2][gfxSharp],gfxPxBudget=()=>[1.9e6,2.6e6,3.7e6][gfxSharp],gfxQMin=()=>[.55,.8,1][gfxSharp];
 /* Eingebettete Vorschau (z. B. Chat-Panel): etwas weniger Renderauflösung,
    damit die Seite dort flüssig bleibt. Im normalen Browser-Tab ändert sich nichts. */
 const EMBED_PREVIEW=(()=>{try{return window.self!==window.top}catch(e){return true}})();
 function gfxSharpUi(L){
-  const o=[L('Standard (fastest)','Standard (schnellste)'),L('Sharp (recommended)','Scharf (empfohlen)'),L('Maximum (native resolution)','Maximal (native Auflösung)')];
+  const o=[L('Standard (fastest)','Standard (schnellste)'),L('Sharp (recommended)','Scharf (empfohlen)'),L('Maximum (sharp, upscaled)','Maximal (scharf, skaliert)')];
   return '<label style="display:block;text-align:left;margin:18px 4px 6px">🔍 '+L('Image sharpness','Bildschärfe')+'</label>'+
     '<select onchange="setGfxFromUI(\'sharp\',this.value)" style="width:100%;padding:10px;border-radius:10px;font:inherit;background:rgba(255,255,255,.1);color:inherit;border:1px solid rgba(255,255,255,.25)">'+
     o.map((t,i)=>'<option style="color:#000" value="'+i+'"'+(gfxSharp===i?' selected':'')+'>'+t+'</option>').join('')+'</select>'+
@@ -764,7 +766,7 @@ try{
   if(aa==='1')gfxAntialias=true;else if(aa==='0')gfxAntialias=false;
   gfxAdvancedLighting=localStorage.getItem('rallyGfxAdvancedLighting')==='1';
   gfxShadowRes=[0,512,1024,2048,4096].includes(sr)?sr:2048;
-  gfxShadowDist=Math.max(100,Math.min(1200,Number(localStorage.getItem('rallyGfxShadowDist')??500)||500));
+  gfxShadowDist=Math.max(80,Math.min(260,Number(localStorage.getItem('rallyGfxShadowDist')??220)||220));
   gfxGrassDist=Number(localStorage.getItem('rallyGfxGrassDist')??960);
   gfxGrassDist=isFinite(gfxGrassDist)?Math.max(0,Math.min(2000,gfxGrassDist)):960;
   gfxGrassDensity=Number(localStorage.getItem('rallyGfxGrassDensity')??100);
@@ -788,10 +790,10 @@ function gxFpsTick(now){
 }
 window.gxPreviewPR=function(){const d=window.devicePixelRatio||1;return Math.max(1,Math.min(2,gfxSharp>0?d*1.5:d))};
 function gxPresets(){const on=Object.keys(FXDEFS).filter(k=>FXDEFS[k]);return[
- {n:['Low','Niedrig'],sr:512,sd:250,gd:400,gn:50,sh:0,rs:.75,vd:.75,pd:.5,adv:false,aa:false,fx:['tone']},
- {n:['Medium','Mittel'],sr:1024,sd:400,gd:700,gn:75,sh:0,rs:.9,vd:.9,pd:.75,adv:false,aa:null,fx:['tone','cool','fog','glow','sun']},
- {n:['High','Hoch'],sr:2048,sd:500,gd:960,gn:100,sh:1,rs:1,vd:1,pd:1,adv:false,aa:true,fx:on},
- {n:['Ultra','Ultra'],sr:4096,sd:800,gd:1500,gn:150,sh:2,rs:1,vd:1.25,pd:1.25,adv:true,aa:true,fx:FXK.slice()}]}
+ {n:['Low','Niedrig'],sr:512,sd:100,gd:400,gn:50,sh:0,rs:.75,vd:.75,pd:.5,adv:false,aa:false,fx:['tone']},
+ {n:['Medium','Mittel'],sr:1024,sd:160,gd:700,gn:75,sh:0,rs:.9,vd:.9,pd:.75,adv:false,aa:null,fx:['tone','cool','fog','glow','sun']},
+ {n:['High','Hoch'],sr:2048,sd:220,gd:960,gn:100,sh:1,rs:1,vd:1,pd:1,adv:false,aa:true,fx:on},
+ {n:['Ultra','Ultra'],sr:4096,sd:260,gd:1500,gn:150,sh:2,rs:1,vd:1.25,pd:1.25,adv:true,aa:true,fx:FXK.slice()}]}
 function gxMatch(){const P=gxPresets();for(let i=0;i<P.length;i++){const p=P[i];
   if(gfxShadowRes===p.sr&&gfxShadowDist===p.sd&&gfxGrassDist===p.gd&&gfxGrassDensity===p.gn&&gfxSharp===p.sh&&Math.abs(gfxRenderScale-p.rs)<.01&&Math.abs(gfxViewDist-p.vd)<.01&&Math.abs(gfxPropDensity-p.pd)<.01&&gfxAdvancedLighting===p.adv&&FXK.every(k=>FXC[k]===p.fx.includes(k)))return i}return -1}
 function gxApplyPreset(i){const p=gxPresets()[i];if(!p)return;
@@ -4718,7 +4720,7 @@ window.openGfxSettings=function(){
     '<div class="gx-r">'+ch(aaOn,'antialias','Anti-Aliasing')+ch(gfxAdvancedLighting,'advancedLighting',L('Advanced lighting','Erweiterte Beleuchtung'))+'</div>'+
     '<p id="gfxAAInfo" class="gx-n">'+(aaPend?L('Reload required for anti-aliasing.','Für Anti-Aliasing ist ein Neustart nötig.'):'')+'</p>'+
     '<button id="gfxAAReload" class="btn sec" style="display:'+(aaPend?'block':'none')+'" onclick="reloadForGfxAA()">↻ '+L('Reload and apply','Neu laden und übernehmen')+'</button>'+
-    sl('gxSd','sd','shadowDist',150,1000,50,Math.round(gfxShadowDist),String(Math.round(gfxShadowDist)),L('Shadow distance','Schattendistanz'))+
+    sl('gxSd','sd','shadowDist',80,260,10,Math.round(gfxShadowDist),String(Math.round(gfxShadowDist)),L('Shadow distance','Schattendistanz'))+
     sl('gxGd','gd','grassDist',0,2000,50,Math.round(gfxGrassDist),gfxGrassLabel(gfxGrassDist),L('Grass distance','Gras-Distanz'))+
     sl('gxVd','vd','view',50,125,5,Math.round(gfxViewDist*100),Math.round(gfxViewDist*100)+' %',L('View distance (fog)','Sichtweite (Nebel)'))+
     sl('gxPd','pd','props',25,150,25,Math.round(gfxPropDensity*100),Math.round(gfxPropDensity*100)+' %',L('Rocks & flowers (next race)','Felsen & Blumen (ab nächstem Rennen)'))+
@@ -8665,6 +8667,9 @@ function draw(){
 }
 
 let last=performance.now();
+/* v116: Zeit, die das eigentliche Zeichnen braucht – damit die Auto-Qualität
+   nicht die Auflösung senkt, wenn in Wahrheit die Simulation bremst. */
+let gfxRenderMs=16.7;
 let fAvg=16.7,qCool=2400,qBack=7000;
 let lastFrameFault='';
 /* Messanzeige (Testbranch): Draw Calls + geglättete Frame-Zeit. */
@@ -8705,7 +8710,10 @@ function frame(now){
     /* Adaptive Qualitaet: bei anhaltend niedriger Framerate die Render-Aufloesung senken */
     fAvg+=(Math.min(raw,100)-fAvg)*.075;qCool-=raw;
     if(qCool<=0&&!document.hidden&&gfxAutoQ){
-      if(fAvg>20&&qMul>gfxQMin()){qMul=Math.max(gfxQMin(),qMul-.10);qBack=Math.min(60000,qBack*1.6);qCool=2200;resize()}
+      /* v116: Auflösung nur senken, wenn auch das Zeichnen der Flaschenhals ist.
+         Bei reiner CPU-Last (KI, Physik) brachte das Herunterskalieren nichts. */
+      const gpuHeavy=gfxRenderMs>=Math.max(3,fAvg*.3);
+      if(fAvg>20&&qMul>gfxQMin()&&(gpuHeavy||fAvg>26)){qMul=Math.max(gfxQMin(),qMul-.10);qBack=Math.min(60000,qBack*1.6);qCool=2200;resize()}
       else if(fAvg<17.5&&qMul<1){qMul=Math.min(1,qMul+.08);qCool=qBack;resize()}
       else qCool=1000;
     }
@@ -8924,13 +8932,13 @@ let on=true;try{on=localStorage.getItem('rally3d')!=='0'}catch(e){}
 let wasIntroForCamera=false;
 const c3=document.createElement('canvas');c3.id='c3';
 c3.style.cssText='position:fixed;inset:0;width:100%;height:100%;z-index:1;pointer-events:none';
-cv.after(c3);c3.style.filter='saturate(1.18) contrast(1.06)';const aorVig=document.createElement('div');aorVig.style.cssText='position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(40,15,50,.38) 100%)';c3.after(aorVig);
+cv.after(c3);const aorVig=document.createElement('div');aorVig.style.cssText='position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(40,15,50,.62) 100%)';c3.after(aorVig);
 let R;
 const lowPowerDevice=(navigator.hardwareConcurrency||4)<=4||(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches);
 activeGfxAntialias=gfxAntialias===null?!lowPowerDevice:gfxAntialias;
 try { R=new T.WebGLRenderer({canvas:c3,antialias:activeGfxAntialias,alpha:false,powerPreference:'high-performance'}); }
 catch(err) { console.warn('WebGL nicht verfügbar – Rally Stage bleibt im 2D-Modus.',err); c3.remove(); return; }
-R.toneMapping=T.NoToneMapping;R.toneMappingExposure=1;R.shadowMap.enabled=true;R.shadowMap.type=T.PCFSoftShadowMap;
+R.toneMapping=T.NoToneMapping;R.toneMappingExposure=1;R.shadowMap.enabled=true;R.shadowMap.type=T.PCFShadowMap;/* v116: Schattenmap wird nur noch gedrosselt neu gerendert */R.shadowMap.autoUpdate=false;
 const S=new T.Scene(),cam3=new T.PerspectiveCamera(40,1,2,7000),idealCam3=new T.Vector3(),lightMixColor=new T.Color(),cameraWallRay=new T.Raycaster(),cameraFocus3=new T.Vector3(),cameraDir3=new T.Vector3();S.background=new T.Color('#a9685b');
 const hemi=new T.HemisphereLight(0xffffff,0x556655,1.1);S.add(hemi);const caveLight=new T.PointLight('#ffd9a0',0,440,1);S.add(caveLight);
 // Zusätzliche, schattenfreie Bounce-/Rim-Lichter simulieren dezentes indirektes Licht.
@@ -8943,16 +8951,21 @@ function applyAdvancedLightingCfg(){
   R.toneMappingExposure=1.14;
 }
 applyAdvancedLightingCfg();
-const sun=new T.DirectionalLight(0xffffff,1.2);sun.position.set(300,600,200);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);{const c=sun.shadow.camera;c.left=c.bottom=-500;c.right=c.top=500;c.near=10;c.far=1550}sun.shadow.bias=-.0008;sun.shadow.normalBias=1.6;sun.shadow.radius=4.2;sun.shadow.autoUpdate=true;S.add(sun,sun.target);
-let shTs=1000/2048;
+const sun=new T.DirectionalLight(0xffffff,1.2);sun.position.set(300,600,200);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);{const c=sun.shadow.camera;c.left=c.bottom=-220;c.right=c.top=220;c.near=10;c.far=1550}sun.shadow.bias=-.0008;sun.shadow.normalBias=.9;sun.shadow.radius=2.6;S.add(sun,sun.target);
+let shTs=1000/2048,shadowTick=0;
 function applyShadowCfg(){
-  const res=gfxShadowRes,D=Math.max(100,Math.min(1200,Number(gfxShadowDist)||500));
-  if(!(res>0)){sun.castShadow=false;return}
+  /* v116: Der Schattenkasten deckte 1000×1000 Einheiten ab (0,49 Einheiten pro
+     Texel bei 2048²) – deshalb wirkte erst 4096 scharf. Ein enger, am Auto
+     hängender Kasten (lighting() rundet den Versatz texelgenau) ist bei gleicher
+     Map-Auflösung 2–4× schärfer und wirft weniger Caster in den Schattenpass. */
+  const res=gfxShadowRes,D=Math.max(80,Math.min(260,Number(gfxShadowDist)||220));
+  if(!(res>0)){sun.castShadow=false;shadowTick=0;R.shadowMap.needsUpdate=true;return}
   const c=sun.shadow.camera;
   sun.castShadow=true;
   if(sun.shadow.mapSize.x!==res){sun.shadow.mapSize.set(res,res);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}
   c.left=c.bottom=-D;c.right=c.top=D;c.near=10;c.far=Math.max(1550,900+D*1.3);c.updateProjectionMatrix();
-  shTs=2*D/res;sun.shadow.normalBias=1.6*Math.max(.6,Math.min(4,shTs/(1000/2048)));
+  shTs=2*D/res;sun.shadow.normalBias=1.6*Math.max(.35,Math.min(2,shTs/(1000/2048)));
+  shadowTick=0;R.shadowMap.needsUpdate=true;
 }
 applyShadowCfg();
 S.fog=new T.Fog(0xe7dfc9,360,2350);
@@ -9028,7 +9041,7 @@ function ribbon(w,y,color,every,hFn){
   const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(P,3));
   g.setIndex(I);g.setAttribute('uv',new T.Float32BufferAttribute(UV,2));g.setAttribute('normal',new T.Float32BufferAttribute(NN,3));
   const mm=new T.Mesh(g,color&&color.isMaterial?color:new T.MeshLambertMaterial({color,side:T.DoubleSide}));
-  mm.receiveShadow=true;return splitQuadMesh(mm,48);
+  mm.receiveShadow=true;return splitQuadMesh(mm,192);
 }
 function sideRibbon(offset,width,y,material,offFn,hFn){
   const P=[],I=[],UV=[];let n=0;
@@ -9045,7 +9058,7 @@ function sideRibbon(offset,width,y,material,offFn,hFn){
     I.push(n,n+1,n+2,n+1,n+3,n+2);n+=4;
   }
   const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(P,3));g.setIndex(I);g.setAttribute('uv',new T.Float32BufferAttribute(UV,2));g.computeVertexNormals();
-  const m=new T.Mesh(g,material);m.receiveShadow=true;return splitQuadMesh(m,48);
+  const m=new T.Mesh(g,material);m.receiveShadow=true;return splitQuadMesh(m,192);
 }
 function inst(geo,color,list,fy,fs){
   const m=new T.InstancedMesh(geo,color&&color.isMaterial?color:new T.MeshLambertMaterial({color}),Math.max(1,list.length)),o=new T.Object3D();
@@ -9697,7 +9710,7 @@ function setGrassFromArrays(matrices,colors,count){
   }
 }
 /* Pro Frame: Gras-Blöcke außerhalb der Reichweite komplett überspringen und mit der Entfernung die Instanzzahl ausdünnen
-   (nah = volle Dichte, fern = bis ~40 %). Das Frustum-Culling von three.js entfernt alles außerhalb des Bildes. */
+   (nah = volle Dichte, fern = bis ~25 %). Das Frustum-Culling von three.js entfernt alles außerhalb des Bildes. */
 function cullGrass(){
   if(!GRCH.length||!grass3)return;
   const cx=cam3.position.x,cz=cam3.position.z,R=GRR;
@@ -9705,7 +9718,7 @@ function cullGrass(){
     const e=GRCH[i],dx=e.x-cx,dz=e.z-cz,d=Math.sqrt(dx*dx+dz*dz);
     if(d-e.r>R){e.m.visible=false;continue}
     e.m.visible=true;
-    const f=1-.6*sm(Math.max(300,R*.35),R,d);
+    const f=1-.75*sm(Math.max(300,R*.35),R,d);
     if(Math.abs(f-e.f)>.03||f>=1&&e.f<1){e.f=f;e.m.count=Math.max(1,Math.ceil(e.n*f))}
   }
 }
@@ -9722,7 +9735,7 @@ function updGrass(cx,cz,ps){
     // noch in der weichen Übergangszone am Wasser entstehen.
     const seaCover=seaG?seaAt(x,z):0;
     if(n>=GN||dx*dx+dz*dz>GRR*GRR||M1.has(mk(x,z))||seaCover>.08||(PL.length&&inPool(x,z))||inRallyClearZone(x,z,5))continue;
-    o.position.set(x,hm(x,z)-.6,z);o.rotation.y=0;o.scale.set(9+hf(gx,gz,k+3)*8,8+hf(gx,gz,k+5)*10,1);o.updateMatrix();o.matrix.toArray(gM,n*16);
+    o.position.set(x,hm(x,z)-.6,z);o.rotation.y=0;o.scale.set(6.5+hf(gx,gz,k+3)*5.5,6.5+hf(gx,gz,k+5)*7,1);o.updateMatrix();o.matrix.toArray(gM,n*16);
     if(grassBase){gcl.copy(grassBase).offsetHSL((hf(gx,gz,k+21)-.5)*.07,0,(hf(gx,gz,k+33)-.5)*.16);gC[n*3]=gcl.r;gC[n*3+1]=gcl.g;gC[n*3+2]=gcl.b}n++;
   }
   setGrassFromArrays(gM,gC,n);
@@ -12944,6 +12957,9 @@ function lighting(ic,wx,y){
   // Kein heller Ambient-Sprung mehr im Tunnel: die Szene wird gedimmt, ein
   // begrenztes warmes Nahlicht hält nur den Bereich um das Fahrzeug lesbar.
   caveLight.intensity+=(ic*70-caveLight.intensity)*smooth;caveLight.position.set(car.x,y+34,car.y);
+  /* v116: Lichter mit Intensität 0 kosten trotzdem Shader-Zweige auf jedem Pixel. */
+  if(caveLight.visible!==(ic>.02))caveLight.visible=ic>.02;
+  {const wantAdv=advancedLightingMix>.004;if(bounceLight.visible!==wantAdv){bounceLight.visible=wantAdv;rimLight.visible=wantAdv}}
   const inCaveNow=!!(caves||[]).find(c=>idx>=c.s&&idx<=c.e);dome.visible=ic<.96||inCaveNow;dome.position.copy(cam3.position);gu.t.value=performance.now()*.001;{const lp=.86+.14*Math.sin(gu.t.value*2.3);for(const m of lavaMats)m.color.setScalar(lp)}
   const lf=(tod===1?.7:tod===2?.28:wx?.85:1)*(1-.22*ic);
   bgMat.color.lerp(cc(tod===1?'#e0a58c':tod===2?'#2c3550':wx?'#c4a49a':'#f7e4d2'),smooth);
@@ -13045,15 +13061,15 @@ function mfxCam(){
 /* Nur zurückkopieren, wenn mfxCam die Position in diesem Frame gesichert hat –
    sonst wird die Menü-/Intro-Kamera auf die alte (ggf. 0,0,0) Position zurückgesetzt. */
 function mfxRestore(){if(MFX.saved){cam3.position.copy(MFX.pos);MFX.saved=false}}
+let vigNow=1;
 function mfxOverlay(y){
-  const d=mfxSize(),W=mfxCv.width,H=mfxCv.height,c=mfxCtx,sf=MFX.sf;
-  c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,W,H);
-  if(sf<.04||(typeof state!=='undefined'&&state!=='play'&&state!=='count'))return;
-  const diag=Math.hypot(W,H),half=diag*.5,now=performance.now()*.001;
-  // Vignette: Tunnelblick bei hohem Tempo
-  const vg=c.createRadialGradient(W/2,H/2,Math.min(W,H)*.34,W/2,H/2,half*.98);
-  vg.addColorStop(0,'rgba(8,10,12,0)');vg.addColorStop(1,'rgba(8,10,12,'+(.34*sf).toFixed(3)+')');
-  c.fillStyle=vg;c.fillRect(0,0,W,H);
+  /* v116: Die Vignette war ein zweiter Fullscreen-Canvas, der pro Frame einen
+     neuen Radialgradient baute und den ganzen Bildschirm übermalte. Sie liegt
+     jetzt in der ohnehin vorhandenen CSS-Vignette und wird nur noch über die
+     Deckkraft animiert – reine Compositor-Arbeit, kein Zeichenaufwand. */
+  const sf=MFX.sf,live=(typeof state==='undefined'||state==='play'||state==='count');
+  const o=live?(0.55+0.45*Math.min(1,sf*1.25)):0.55;
+  if(Math.abs(o-vigNow)>.01){vigNow=o;aorVig.style.opacity=o.toFixed(3)}
 }
 
 function render3d(){
@@ -13170,7 +13186,13 @@ function render3d(){
   lighting(ic,wx,y);updateExitGlow();updateGlare();updateWorldFx(y,ic);
   cullChunks();cullGrass();updFloods();
   updateGhosts();
-  R.render(S,cam3);perfCalls=R.info.render.calls;mfxRestore();mfxOverlay(y);
+  /* v116: Schattenmap nur gedrosselt neu rendern (4096 alle 3, 2048 alle 2 Frames).
+     Ein Frame Verzögerung ist bei Fahrzeugschatten nicht sichtbar. */
+  if(shadowTick<=0){R.shadowMap.needsUpdate=true;shadowTick=gfxShadowRes>=4096?3:(gfxShadowRes>=2048?2:1)}
+  shadowTick--;
+  const _rt=performance.now();R.render(S,cam3);const _rms=performance.now()-_rt;
+  if(_rms>0&&_rms<200)gfxRenderMs+=(_rms-gfxRenderMs)*.08;
+  perfCalls=R.info.render.calls;mfxRestore();mfxOverlay(y);
 }
 /* ===== v86: Ego-Perspektive (Cockpit / Stoßstange) + Rennhighlights mit Replay ===== */
 const rzClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -14188,7 +14210,7 @@ function hlUiTick(){
   if(showFp!==fpShown){fpShown=showFp;fpBtn.style.display=showFp?'block':'none'}
 }
 
-function apply(){fenceCollisionActive=true;c3.style.display=on?'block':'none';mfxCv.style.display=on?'block':'none';aorVig.style.display=on?'block':'none';cv.style.visibility=on?'hidden':'visible';if(!on)perfCalls=0;resize()}
+function apply(){fenceCollisionActive=true;c3.style.display=on?'block':'none';mfxCv.style.display='none';aorVig.style.display=on?'block':'none';cv.style.visibility=on?'hidden':'visible';if(!on)perfCalls=0;resize()}
 const _rs=resize;
 resize=function(){_rs();if(on){cv.width=cv.height=2}
   {
