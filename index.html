@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v116 · Three.js r187 · Performance-Paket</title>
+<title>Rally Stage – Lancia Delta Integrale · v117 · Three.js r187</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -7436,7 +7436,7 @@ brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
                 if(f.soft){
                   const rs=12,drx=tx-px,dry=ty-py;
                   if(drx*drx+dry*dry<rs*rs){
-                    if(u<softT){softT=u;softHit={x:px,y:py,r:15.5,kind:'Holzzaun',wall:true,px,py,dx,dy};}
+                    if(u<softT){softT=u;softHit={x:px,y:py,r:9,kind:'Holzzaun',wall:true,px,py,dx,dy};}
                     break;
                   }
                   continue;
@@ -10420,16 +10420,34 @@ function addFences(){
   if(BI.ice||BI.n==='Schnee'){buildFenceGrid();return;}
   // Verwittertes Holz statt Rallye-Gelb: ruhigere, art-of-rally-taugliche Zäune.
   const M=new T.MeshStandardMaterial({color:'#bfa07a',roughness:.94,metalness:0,flatShading:true}),sd=Math.random()*9,rails=[],posts=[];
+  // Streckenraster: ein Zaun darf nie auf der Fahrbahn landen – auch nicht auf einem
+  // benachbarten Streckenabschnitt, sonst wäre er nicht umfahrbar.
+  const tGrid=new Map(),TGC=72;
+  for(const p of pts){const k=Math.floor(p.x/TGC)+','+Math.floor(p.y/TGC);let a=tGrid.get(k);if(!a){a=[];tGrid.set(k,a)}a.push(p)}
+  const freeOfTrack=(ax,az,bx,bz)=>{
+    const lim=HW+42,lim2=lim*lim;
+    for(let s=0;s<=8;s++){
+      const u=s/8,tx=ax+(bx-ax)*u,tz=az+(bz-az)*u,cx=Math.floor(tx/TGC),cz=Math.floor(tz/TGC);
+      for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){
+        const b=tGrid.get((cx+dx)+','+(cz+dz));if(!b)continue;
+        for(const p of b){const ex=p.x-tx,ez=p.y-tz;if(ex*ex+ez*ez<lim2)return false}
+      }
+    }
+    return true;
+  };
   for(let i=4;i<pts.length-8;i+=4){
     const p=pts[i],q=pts[i+4];if(Math.sin(i*.021+sd)<.3||p.cv||q.cv)continue;
-    const side=Math.sin(i*.007+sd*2)>0?1:-1,off=HW+26,ax=p.x-Math.sin(p.h)*off*side,az=p.y+Math.cos(p.h)*off*side,bx=q.x-Math.sin(q.h)*off*side,bz=q.y+Math.cos(q.h)*off*side;
+    // 58 m hinter dem Fahrbahnrand statt 26 m: die Zaunwand (Kollision 15,5 + Auto 18)
+    // reicht damit nicht mehr bis an die Strecke, der Zaun ist immer umfahrbar.
+    const side=Math.sin(i*.007+sd*2)>0?1:-1,off=HW+58,ax=p.x-Math.sin(p.h)*off*side,az=p.y+Math.cos(p.h)*off*side,bx=q.x-Math.sin(q.h)*off*side,bz=q.y+Math.cos(q.h)*off*side;
     if(inRallyClearZone((ax+bx)*.5,(az+bz)*.5,10))continue;
+    if(!freeOfTrack(ax,az,bx,bz))continue;
     const ay=tH(ax,az),by=tH(bx,bz);
     // Morsche Felder (obere Latte fehlt) geben beim Durchfahren nach,
     // der Rest bleibt eine feste Holzwand.
     const soft=Math.sin(i*1.7+sd*3.1)>.42;
     posts.push([ax,ay,az]);rails.push([ax,ay,az,bx,by,bz,soft]);
-    fenceColliders.push({ax,az,bx,bz,r:15.5,soft});
+    fenceColliders.push({ax,az,bx,bz,r:9,soft});
   }
   if(!posts.length)return;
   const pm=new T.InstancedMesh(new T.BoxGeometry(1.8,11,1.8),M,posts.length),rm_=new T.InstancedMesh(new T.BoxGeometry(1,1.6,1.1),M,rails.length*2),o=new T.Object3D();
