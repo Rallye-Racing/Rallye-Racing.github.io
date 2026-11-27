@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v123 · Three.js r187</title>
+<title>Rally Stage – Lancia Delta Integrale · v124 · Three.js r187</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -766,7 +766,7 @@ try{
   if(aa==='1')gfxAntialias=true;else if(aa==='0')gfxAntialias=false;
   gfxAdvancedLighting=localStorage.getItem('rallyGfxAdvancedLighting')==='1';
   gfxShadowRes=[0,512,1024,2048,4096].includes(sr)?sr:2048;
-  gfxShadowDist=Math.max(80,Math.min(260,Number(localStorage.getItem('rallyGfxShadowDist')??220)||220));
+  gfxShadowDist=Math.max(80,Math.min(900,Number(localStorage.getItem('rallyGfxShadowDist')??220)||220));
   gfxGrassDist=Number(localStorage.getItem('rallyGfxGrassDist')??960);
   gfxGrassDist=isFinite(gfxGrassDist)?Math.max(0,Math.min(2000,gfxGrassDist)):960;
   gfxGrassDensity=Number(localStorage.getItem('rallyGfxGrassDensity')??100);
@@ -4753,7 +4753,7 @@ window.openGfxSettings=function(){
     '<div class="gx-r">'+ch(aaOn,'antialias','Anti-Aliasing')+ch(gfxAdvancedLighting,'advancedLighting',L('Advanced lighting','Erweiterte Beleuchtung'))+'</div>'+
     '<p id="gfxAAInfo" class="gx-n">'+(aaPend?L('Reload required for anti-aliasing.','Für Anti-Aliasing ist ein Neustart nötig.'):'')+'</p>'+
     '<button id="gfxAAReload" class="btn sec" style="display:'+(aaPend?'block':'none')+'" onclick="reloadForGfxAA()">↻ '+L('Reload and apply','Neu laden und übernehmen')+'</button>'+
-    sl('gxSd','sd','shadowDist',80,260,10,Math.round(gfxShadowDist),String(Math.round(gfxShadowDist)),L('Shadow distance','Schattendistanz'))+
+    sl('gxSd','sd','shadowDist',80,900,20,Math.round(gfxShadowDist),String(Math.round(gfxShadowDist)),L('Shadow distance','Schattendistanz'))+
     sl('gxGd','gd','grassDist',0,2000,50,Math.round(gfxGrassDist),gfxGrassLabel(gfxGrassDist),L('Grass distance','Gras-Distanz'))+
     sl('gxVd','vd','view',50,125,5,Math.round(gfxViewDist*100),Math.round(gfxViewDist*100)+' %',L('View distance (fog)','Sichtweite (Nebel)'))+
     sl('gxPd','pd','props',25,150,25,Math.round(gfxPropDensity*100),Math.round(gfxPropDensity*100)+' %',L('Rocks & flowers (next race)','Felsen & Blumen (ab nächstem Rennen)'))+
@@ -9213,7 +9213,7 @@ function applyShadowCfg(){
      Texel bei 2048²) – deshalb wirkte erst 4096 scharf. Ein enger, am Auto
      hängender Kasten (lighting() rundet den Versatz texelgenau) ist bei gleicher
      Map-Auflösung 2–4× schärfer und wirft weniger Caster in den Schattenpass. */
-  const res=gfxShadowRes,D=Math.max(80,Math.min(260,Number(gfxShadowDist)||220));
+  const res=gfxShadowRes,D=Math.max(80,Math.min(900,Number(gfxShadowDist)||220));
   if(!(res>0)){sun.castShadow=false;shadowTick=0;R.shadowMap.needsUpdate=true;return}
   const c=sun.shadow.camera;
   sun.castShadow=true;
@@ -9711,7 +9711,9 @@ function* updTGen(job){
       if(hf(gx,gz,k+41)>gChance)continue;
       const x=(gx+hf(gx,gz,k))*GC,z=(gz+hf(gz,gx,k+7))*GC,dx=x-cx,dz=z-cz;
       const seaCover=seaG?seaAt(x,z):0;
-      if(gn>=GN||dx*dx+dz*dz>GRR*GRR||M1.has(mk(x,z))||seaCover>.08||(PL.length&&inPool(x,z))||inRallyClearZone(x,z,5))continue;
+      /* v124: Auch im Flussbett wuchs Gras. Die Kerbe liegt unter dem Wasserband,
+         deshalb muss dieselbe Flussprüfung wie bei der Uferbepflanzung greifen. */
+      if(gn>=GN||dx*dx+dz*dz>GRR*GRR||M1.has(mk(x,z))||seaCover>.08||(PL.length&&inPool(x,z))||inRallyClearZone(x,z,5)||inRiver(x,z,3))continue;
       const o=gn*16;
       gM[o]=9+hf(gx,gz,k+3)*8;gM[o+5]=8+hf(gx,gz,k+5)*10;gM[o+10]=1;gM[o+12]=x;gM[o+13]=hm(x,z)-.6;gM[o+14]=z;gM[o+15]=1;
       if(gCa){gcl.copy(gB).offsetHSL((hf(gx,gz,k+21)-.5)*.07,0,(hf(gx,gz,k+33)-.5)*.16);gCa[gn*3]=gcl.r;gCa[gn*3+1]=gcl.g;gCa[gn*3+2]=gcl.b}
@@ -10005,7 +10007,7 @@ function updGrass(cx,cz,ps){
     // Die Küstenmaske ist maßgeblich: Gras darf weder auf dem offenen Meer
     // noch in der weichen Übergangszone am Wasser entstehen.
     const seaCover=seaG?seaAt(x,z):0;
-    if(n>=GN||dx*dx+dz*dz>GRR*GRR||M1.has(mk(x,z))||seaCover>.08||(PL.length&&inPool(x,z))||inRallyClearZone(x,z,5))continue;
+    if(n>=GN||dx*dx+dz*dz>GRR*GRR||M1.has(mk(x,z))||seaCover>.08||(PL.length&&inPool(x,z))||inRallyClearZone(x,z,5)||inRiver(x,z,3))continue;
     o.position.set(x,hm(x,z)-.6,z);o.rotation.y=0;o.scale.set(6.5+hf(gx,gz,k+3)*5.5,6.5+hf(gx,gz,k+5)*7,1);o.updateMatrix();o.matrix.toArray(gM,n*16);
     if(grassBase){gcl.copy(grassBase).offsetHSL((hf(gx,gz,k+21)-.5)*.07,0,(hf(gx,gz,k+33)-.5)*.16);gC[n*3]=gcl.r;gC[n*3+1]=gcl.g;gC[n*3+2]=gcl.b}n++;
   }
@@ -10265,6 +10267,17 @@ function inRiver(x,z,m){
   }
   return false;
 }
+/* v124: Abstand eines Punktes zur Fahrbahnmitte, gelesen aus der vorhandenen
+   Straßenzellenkarte. Damit kann ein Fluss die Trasse gar nicht erst kreuzen –
+   die Kerbe schnitt sonst an Haarnadeln quer durch die Fahrbahn. */
+function roadGap(x,z){
+  const gx=Math.floor(x/CS),gz=Math.floor(z/CS);let m=1e9;
+  for(let a=-2;a<=2;a++)for(let b=-2;b<=2;b++){
+    const arr=GR.get((gx+a+500)*1000+gz+b+500);if(!arr)continue;
+    for(const i of arr){const p=pts[i];if(!p)continue;const dx=p.x-x,dz=p.y-z,dd=dx*dx+dz*dz;if(dd<m)m=dd}
+  }
+  return m===1e9?1e9:Math.sqrt(m);
+}
 function pushRiverSeg(a,b,lev,half,bed){
   const s={ax:a.x,az:a.z,bx:b.x,bz:b.z,lev,half,bed};
   riverSegs.push(s);
@@ -10336,7 +10349,8 @@ function addRivers(){
       if(ok){
         const off=base+60*Math.sin(i*.032+ph)+26*Math.sin(i*.009+ph*1.7);
         const x=p.x-Math.sin(p.h)*off*side,z=p.y+Math.cos(p.h)*off*side;
-        if(inRallyClearZone(x,z,70))ok=false;else cur.push({x,z});
+        /* Kerbe (2,1 × halbe Breite) plus Bankett muss neben der Fahrbahn bleiben. */
+        if(inRallyClearZone(x,z,70)||roadGap(x,z)<HW+110)ok=false;else cur.push({x,z});
       }
       if(!ok&&cur.length>6){runs.push(cur);cur=[];}
     }
@@ -13097,17 +13111,6 @@ function riverMat(){const k=BI.n==='Vulkan'?'lava':(BI.ice||BI.n==='Schnee')?'ic
 let fallM=null,radT=null;
 function fallMat(){return fallM||(fallM=new T.MeshLambertMaterial({map:wTex('#a9cfe0','#e4f2f8'),transparent:true,opacity:.8,depthWrite:false,side:T.DoubleSide}))}
 function radTex(){if(radT)return radT;const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d'),g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,64,64);return radT=new T.CanvasTexture(c)}
-function bridge(i){const p=pts[i],fx=Math.cos(p.h),fz=Math.sin(p.h),th=Math.atan2(-fx,-fz),st=PRM(BI.n==='Vulkan'?'#4a3a36':'#8c8a80');let placed=0;
-  for(const s of[-1,1]){
-    /* Gelände unter der Wasserfläche prüfen: zu unebenes Gelände (Überhang / Anschnitt) oder Gelände über Brückenhöhe -> hier kein Wasser */
-    let mn=1e9,mx=-1e9;
-    for(const du of[-110,-55,0,55,110])for(const ao of[-23,0,23]){const lat=s*(HW+126+du),g0=tH(p.x-fz*lat+fx*ao,p.y+fx*lat+fz*ao);if(g0<mn)mn=g0;if(g0>mx)mx=g0}
-    const ry=rh[i]||0;
-    if(!(mx-mn<=3.5)||mx+.4>ry-1)continue;
-    const w=new T.Mesh(new T.PlaneGeometry(240,46),riverMat());w.rotation.order='YXZ';w.rotation.set(-Math.PI/2,th,0);place(w,i,s*(HW+126),0);w.position.y=mx+.4;
-    const g=new T.Group();pm(bxG,st,3,9,100,0,3,0,g);for(const o of[-44,-15,15,44])pm(bxG,PRM('#6f6d65'),5,13,5,0,4,o,g);
-    place(g,i,s*(HW+4),0);g.rotation.y=Math.atan2(fx,fz);placed++}
-  return placed>0}
 function waterfall(i,s){const p=pts[i],fx=Math.cos(p.h),fz=Math.sin(p.h),g=new T.Group();
   pm(bxG,PRM('#7d7a72'),70,120,40,0,40,0,g);pm(bxG,PRM('#6f6c64'),50,40,30,-6,100,-4,g);
   const f=new T.Mesh(new T.PlaneGeometry(14,112),fallMat());f.position.set(0,44,20.6);g.add(f);
@@ -13185,7 +13188,6 @@ function buildProps(){
   if(n==='Küste'){const i=pick(used);if(i>=0){const g=new T.Group(),pv=new T.Group(),bg=new T.CylinderGeometry(22,.5,420,12,1,true);bg.rotateZ(-Math.PI/2);bg.translate(210,0,0);
     pm(cylG,PRM('#f2f2ee'),8,110,8,0,47,0,g);pm(cylG,PRM('#c43a2e'),8.6,22,8.6,0,45,0,g);pm(cylG,new T.MeshBasicMaterial({color:'#ffe9a8'}),6,9,6,0,106,0,g);pm(coneG,PRM('#8a2e2a'),9,9,9,0,115,0,g);
     const b1=new T.Mesh(bg,beamMat),b2=new T.Mesh(bg,beamMat);b2.rotation.y=Math.PI;pv.add(b1,b2);pv.position.set(0,106,0);g.add(pv);lhBeam=pv;place(g,i,sd()*(HW+240),0)}}
-  if(n!=='Wüste')for(let b=0;b<2;b++){for(let t=0;t<40;t++){const i=pick(used);if(i<0)break;if(bridge(i))break}}
   if(['Berge','Dschungel','Wald','Herbstwald'].includes(n))for(let w=0;w<2;w++){const i=pick(used);if(i<0)break;waterfall(i,sd())}
   (caves||[]).forEach(tunnelVariant);dripG.setAttribute('position',new T.Float32BufferAttribute(new Float32Array(dripPts.length*3),3));dripG.setDrawRange(0,dripPts.length);buildWet();
 }
@@ -13486,7 +13488,10 @@ function lighting(ic,wx,y){
   bounceLight.color.lerp(cc(L.hs),smooth);bounceLight.intensity=advancedLightingMix*(tod===2?.17:.105)*(1-.35*ic)*(1-.68*egoDark);
   rimLight.color.lerp(cc(tod===2?'#a9c5ff':tod===1?'#ffd1b5':'#e7f0ff'),smooth);rimLight.intensity=advancedLightingMix*(tod===2?.19:.085)*(1-.55*ic)*(1-.6*egoDark);
   const dir=_lD.copy(_smSunDir),ts=shTs,r=_lR.crossVectors(vUp,dir).normalize(),u=_lU.crossVectors(dir,r),tp=_lTp.set(car.x,y,car.y),a=tp.dot(r),b=tp.dot(u);tp.addScaledVector(r,Math.round(a/ts)*ts-a).addScaledVector(u,Math.round(b/ts)*ts-b);_targetSunPos.copy(tp).addScaledVector(dir,900);
-  if(!lightingReady){sun.position.copy(_targetSunPos);sun.target.position.copy(tp);}else{sun.position.lerp(_targetSunPos,smooth);sun.target.position.lerp(tp,smooth);}sun.target.updateMatrixWorld();
+  /* v124: Der Schattenkasten hängt jetzt ohne Tiefpass am Auto. Vorher liefen
+     Lichtposition und Ziel der geglätteten Karosserie nach – der Autoschatten
+     blieb dadurch sichtbar hinter dem Wagen zurück und flackerte an der Kante. */
+  sun.position.copy(_targetSunPos);sun.target.position.copy(tp);sun.target.updateMatrixWorld();
   bounceLight.position.set(car.x-dir.x*500,y+360,car.y-dir.z*500);bounceLight.target.position.set(car.x,y,car.y);bounceLight.target.updateMatrixWorld();
   rimLight.position.set(car.x+dir.z*420,y+250,car.y-dir.x*420);rimLight.target.position.set(car.x,y,car.y);rimLight.target.updateMatrixWorld();
   lightingReady=true;fxUpdate(ic);
@@ -13722,10 +13727,10 @@ function render3d(){
   lighting(ic,wx,y);updateExitGlow();updateGlare();updateWorldFx(y,ic);
   cullChunks();cullGrass();updFloods();
   updateGhosts();
-  /* v116: Schattenmap nur gedrosselt neu rendern (4096 alle 3, 2048 alle 2 Frames).
-     Ein Frame Verzögerung ist bei Fahrzeugschatten nicht sichtbar. */
-  if(shadowTick<=0){R.shadowMap.needsUpdate=true;shadowTick=gfxShadowRes>=4096?3:(gfxShadowRes>=2048?2:1)}
-  shadowTick--;
+  /* v124: Die Schattenmap wird wieder jeden Frame gebaut. autoUpdate ist aus, und
+     der Schattenkasten folgt dem Auto – mit 2–3 Frames Verzögerung zog der
+     Autoschatten sichtbar hinterher. */
+  if(sun.castShadow)R.shadowMap.needsUpdate=true;
   const _rt=performance.now();R.render(S,cam3);const _rms=performance.now()-_rt;
   if(_rms>0&&_rms<200)gfxRenderMs+=(_rms-gfxRenderMs)*.08;
   perfCalls=R.info.render.calls;mfxRestore();mfxOverlay(y);
