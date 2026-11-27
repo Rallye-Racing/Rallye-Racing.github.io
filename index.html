@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v113 · Stabiles Schwierigkeitsmenü</title>
+<title>Rally Stage – Lancia Delta Integrale · v114 · Teamwahl zum Karrierestart</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -1949,7 +1949,7 @@ window.createNewCareer=async function(slot){
 
     awaitingFirstCareer=false;
     toast('Neue Karriere in Slot '+slot+' erstellt');
-    window.pickCareerDifficulty();
+    window.pickCareerTeam();
     return true;
   }catch(e){
     console.warn('Neue Karriere konnte nicht gespeichert werden:',e);
@@ -6837,6 +6837,35 @@ window.openSchool=function(){
     (tutorialBackFn
       ? '<button class="btn sec" onclick="window.tutorialBack()">← Zurück zum Tutorial</button>'
       : '<button class="btn sec" onclick="menuCard()">Zurück zum Menü</button>'));
+};
+/* Teamwahl zum Karrierestart: freie Wahl ohne Ruf-Anforderung, sortiert vom stärksten
+   (höchster pace-Wert) zum schwächsten Team. Das Team-Paket wird wie bei einem
+   Vertragsabschluss eingemischt. */
+window.pickCareerTeam=function(){
+  const order=[...TEAMS].sort((a,b)=>(b.pace||1)-(a.pace||1));
+  const rows=order.map(tm=>{
+    const i=TEAMS.indexOf(tm), pct=Math.round(((tm.pace||1)-1)*100);
+    return '<button class="btn sec" style="text-align:left;align-items:flex-start;border-left:4px solid '+tm.col+';margin:5px 0" onclick="applyCareerTeam('+i+')">'+
+      '<span><b style="color:'+tm.col+'">'+tm.ic+' '+tm.n+'</b> <small style="opacity:.7">· Performance +'+pct+' %</small>'+
+      '<br><small style="display:block;opacity:.8;font-weight:400">Rennbudget '+fmtEur(tm.budgetBonus)+' pro WM-Lauf · Upgrade-Rabatt '+Math.round(tm.upgradeDiscount*100)+' % · Forschung '+Math.round(tm.researchDiscount*100)+' %'+(tm.weeklyFP||tm.weeklyTP?' · '+tm.weeklyFP+' FP / '+tm.weeklyTP+' TP pro Woche':'')+'</small></span></button>';
+  }).join('');
+  showCard('<div style="font-size:34px;margin:4px">🏁</div><h1>Team wählen</h1>'+
+    '<p>Du startest deine Karriere in einem eigenen Rennstall. Beim Karrierestart entfällt die Ruf-Anforderung – du kannst <b>jedes</b> Team wählen. Die Liste ist vom <b>stärksten</b> zum schwächsten Team sortiert.</p>'+
+    '<div style="max-height:52vh;overflow:auto;text-align:left">'+rows+'</div>'+
+    '<p><small>Das Team bestimmt Startteile, Forschung, Rabatte und dein Rennbudget pro WM-Hauptrennen. Stärkere Teams bringen mehr Leistung – und höhere Erwartungen an deine Ergebnisse.</small></p>');
+};
+window.applyCareerTeam=function(i){
+  i=Number(i);
+  const tm=TEAMS[i];
+  if(!Number.isInteger(i)||!tm||i<0||i>=TEAMS.length){toast('Team nicht gefunden');return false;}
+  teamId=i;customTeamName='';
+  mergeTeamPackage(tm);
+  applyProTireResearch();
+  teamContractSeasons=1;
+  saveGame();
+  toast('🏁 Team gewählt: '+tm.n);
+  window.pickCareerDifficulty();
+  return true;
 };
 let careerDiffPick=null;
 function renderCareerDifficultyCard(){
