@@ -9,8 +9,8 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v114 · Teamwahl zum Karrierestart</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
+<title>Rally Stage – Lancia Delta Integrale · v115 · Three.js r187, Messanzeige &amp; Teamwahl</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -18,6 +18,9 @@
 :root[data-theme="dark"]{--card:rgba(14,22,17,.9);--card-solid:#101913}
 html,body{height:100%;margin:0;overflow:hidden;background:#2b4222;font-family:"Chakra Petch",system-ui,-apple-system,"Segoe UI",sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block}
+#perfHud{position:fixed;z-index:9;left:50%;top:calc(70px + env(safe-area-inset-top));transform:translateX(-50%);display:block;max-width:calc(100vw - 28px);padding:5px 9px;border:1px solid rgba(244,239,225,.22);border-radius:7px;background:rgba(10,14,12,.74);color:#f4efe1;font:600 10.5px/1.15 "Chakra Petch",ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em;font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);touch-action:manipulation;user-select:none;-webkit-user-select:none;appearance:none;margin:0}
+#perfHud.min{padding:4px 7px;font-size:13px;line-height:1}
+#perfHud:focus-visible{outline:2px solid #ffd05b;outline-offset:2px}
 #hud{position:fixed;inset:0;zoom:calc(var(--ui) * var(--hud-scale,1));pointer-events:none;font-family:Bungee,Impact,"Arial Black",sans-serif;padding:0}
 .pill{position:absolute;top:14px;background:linear-gradient(160deg,rgba(26,40,30,.92),rgba(12,19,14,.94));color:var(--accent);padding:9px 15px;border-radius:14px;font-size:22px;line-height:1;min-width:86px;text-align:center;border:1px solid var(--glass-border);box-shadow:0 10px 24px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.14)}
 .pill small{display:block;font:700 10px/1 "Chakra Petch",system-ui,sans-serif;text-transform:uppercase;letter-spacing:1.1px;color:#9rb8a0;color:#9ab09e;margin-bottom:5px}
@@ -447,6 +450,7 @@ th{background:rgba(0,0,0,.25);color:var(--accent);font-weight:500;letter-spacing
   <div id="big"></div>
   <div id="toast"></div>
 </div>
+<button id="perfHud" type="button" aria-expanded="true" aria-label="Messanzeige für Draw Calls und Frame-Zeit" title="Draw Calls &amp; Frame-Zeit · F9 zum Umschalten">DC – · – ms · – FPS</button>
 <div id="tc">
   <div class="wheel"><svg class="wsvg" viewBox="0 0 200 200" aria-hidden="true"><defs><radialGradient id="wHub" cx="42%" cy="35%" r="78%"><stop offset="0" stop-color="#565b64"/><stop offset=".65" stop-color="#22252b"/><stop offset="1" stop-color="#111215"/></radialGradient><linearGradient id="wSp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8b919c"/><stop offset=".5" stop-color="#3c4047"/><stop offset="1" stop-color="#1c1e22"/></linearGradient><linearGradient id="wRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a3e45"/><stop offset=".5" stop-color="#23262b"/><stop offset="1" stop-color="#141619"/></linearGradient></defs><circle cx="100" cy="100" r="88" fill="none" stroke="#0c0d0f" stroke-width="27"/><circle cx="100" cy="100" r="88" fill="none" stroke="url(#wRim)" stroke-width="22"/><circle cx="100" cy="100" r="88" fill="none" stroke="#646a74" stroke-width="1.6" stroke-dasharray="3 5" opacity=".75"/><circle cx="100" cy="100" r="99" fill="none" stroke="#ffb82e" stroke-width="1.2" opacity=".35"/><rect x="93" y="6" width="14" height="28" rx="3" fill="#ffb82e" stroke="#121316" stroke-width="1.5"/><rect x="97" y="6" width="6" height="28" rx="1.5" fill="#e5352b"/><path d="M15 92h70v16H15z" fill="url(#wSp)" stroke="#131518" stroke-width="1.5"/><path d="M115 92h70v16h-70z" fill="url(#wSp)" stroke="#131518" stroke-width="1.5"/><path d="M92 114h16v73H92z" fill="url(#wSp)" stroke="#131518" stroke-width="1.5"/><circle cx="34" cy="100" r="2.6" fill="#cfd6df"/><circle cx="166" cy="100" r="2.6" fill="#cfd6df"/><circle cx="100" cy="166" r="2.6" fill="#cfd6df"/><circle cx="100" cy="100" r="32" fill="url(#wHub)" stroke="#0c0d0e" stroke-width="3"/><circle cx="100" cy="100" r="22" fill="none" stroke="#ffb82e" stroke-width="1.4" opacity=".65"/><circle cx="100" cy="100" r="10" fill="#ffb82e" stroke="#18191c" stroke-width="2"/><circle cx="100" cy="100" r="4" fill="#18191c"/></svg><button data-t="l" aria-label="Links"></button><button data-t="r" aria-label="Rechts"></button></div>
   <div><button class="real" data-t="h" aria-label="Handbremse"><svg class="hsvg" viewBox="0 0 110 200" aria-hidden="true"><defs><linearGradient id="hRod" x1="0" x2="1"><stop offset="0" stop-color="#7c828b"/><stop offset=".45" stop-color="#f4f7fa"/><stop offset="1" stop-color="#5a6068"/></linearGradient><linearGradient id="hGrip" x1="0" x2="1"><stop offset="0" stop-color="#111215"/><stop offset=".42" stop-color="#3c4048"/><stop offset="1" stop-color="#111215"/></linearGradient></defs><path d="M5 196l11-42h78l11 42z" fill="#17191d" stroke="#0b0c0e" stroke-width="2"/><path d="M16 154h78l-3 12H19z" fill="#2c3037"/><rect x="24" y="174" width="62" height="6" rx="3" fill="#0d0e11"/><g class="lever"><rect x="50" y="50" width="10" height="118" rx="4" fill="url(#hRod)" stroke="#23262b" stroke-width="1.2"/><g fill="#9aa2ad"><rect x="60" y="96" width="5" height="3" rx="1"/><rect x="60" y="109" width="5" height="3" rx="1"/><rect x="60" y="122" width="5" height="3" rx="1"/><rect x="60" y="135" width="5" height="3" rx="1"/></g><rect x="40" y="8" width="30" height="56" rx="11" fill="url(#hGrip)" stroke="#090a0c" stroke-width="2"/><path d="M46 19h18M46 29h18M46 39h18M46 49h18" stroke="#636973" stroke-width="1.6" stroke-linecap="round"/><rect x="45" y="1" width="20" height="11" rx="4" fill="#ff4d3d" stroke="#6b0d07" stroke-width="1.5"/><circle class="hb-glow" cx="55" cy="6.5" r="9" fill="#ff4d3d" opacity=".45"/></g><circle cx="55" cy="168" r="9.5" fill="#aeb5bf" stroke="#1b1e23" stroke-width="2"/><circle cx="55" cy="168" r="3.5" fill="#1b1e23"/></svg></button><button class="real" data-t="g" aria-label="Gas"><svg class="gsvg" viewBox="0 0 110 200" aria-hidden="true"><defs><linearGradient id="gAl" x1="0" x2="1"><stop offset="0" stop-color="#848a94"/><stop offset=".5" stop-color="#e8edf2"/><stop offset="1" stop-color="#757b84"/></linearGradient></defs><rect x="3" y="180" width="104" height="17" rx="5" fill="#17191d" stroke="#0a0b0d" stroke-width="1.8"/><rect x="39" y="152" width="32" height="32" rx="3" fill="#525760" stroke="#181a1e" stroke-width="1.5"/><g class="ped"><rect x="13" y="8" width="84" height="156" rx="14" fill="#101215" stroke="#2c3038" stroke-width="1.5"/><rect x="18" y="13" width="74" height="146" rx="10" fill="url(#gAl)"/><g fill="#181b20"><rect x="25" y="26" width="60" height="8" rx="4"/><rect x="25" y="46" width="60" height="8" rx="4"/><rect x="25" y="66" width="60" height="8" rx="4"/><rect x="25" y="86" width="60" height="8" rx="4"/><rect x="25" y="106" width="60" height="8" rx="4"/><rect x="25" y="126" width="60" height="8" rx="4"/></g><circle cx="25" cy="20" r="2.6" fill="#4b5058"/><circle cx="85" cy="20" r="2.6" fill="#4b5058"/><circle cx="25" cy="152" r="2.6" fill="#4b5058"/><circle cx="85" cy="152" r="2.6" fill="#4b5058"/><rect class="gas-glow" x="18" y="13" width="74" height="146" rx="10" fill="#ffb82e" opacity=".28"/></g><circle cx="55" cy="179" r="6.5" fill="#b4bbc4" stroke="#1c1f24" stroke-width="2"/><circle cx="55" cy="179" r="2.4" fill="#1c1f24"/></svg></button></div>
@@ -8663,9 +8667,39 @@ function draw(){
 let last=performance.now();
 let fAvg=16.7,qCool=2400,qBack=7000;
 let lastFrameFault='';
+/* Messanzeige (Testbranch): Draw Calls + geglättete Frame-Zeit. */
+let perfCalls=0,perfMs=16.7,perfLastPaint=0,perfOpen=true;
+try{perfOpen=localStorage.getItem('rallyPerfHud')!=='0'}catch(e){}
+const perfHudEl=$('perfHud');
+function paintPerfHud(now,force){
+  if(!perfHudEl||!perfOpen)return;
+  if(!force&&now-perfLastPaint<250)return;
+  perfLastPaint=now;
+  const ms=Math.max(0.1,perfMs),fps=Math.round(1000/ms);
+  const txt='DC '+(perfCalls||'–')+' · '+ms.toFixed(1)+' ms · '+fps+' FPS';
+  if(perfHudEl.textContent!==txt)perfHudEl.textContent=txt;
+}
+function applyPerfHud(){
+  if(!perfHudEl)return;
+  perfHudEl.classList.toggle('min',!perfOpen);
+  perfHudEl.setAttribute('aria-expanded',perfOpen?'true':'false');
+  if(!perfOpen){perfHudEl.textContent='📊';return}
+  paintPerfHud(performance.now(),true);
+}
+function togglePerfHud(){
+  perfOpen=!perfOpen;
+  try{localStorage.setItem('rallyPerfHud',perfOpen?'1':'0')}catch(e){}
+  applyPerfHud();
+}
+if(perfHudEl){
+  perfHudEl.addEventListener('click',()=>{togglePerfHud();perfHudEl.blur()});
+  addEventListener('keydown',e=>{if(e.code==='F9'){e.preventDefault();togglePerfHud()}});
+  applyPerfHud();
+}
 function frame(now){
   if(gfxFpsCap>0&&now-last<1000/gfxFpsCap-2){requestAnimationFrame(frame);return}
   const raw=Math.max(0,Math.min(250,now-last)),real=raw/1000;
+  const perfRaw=Math.max(0,now-last);
   last=now;frameDt=Math.min(.05,Math.max(.001,real));if(gfxShowFps)gxFpsTick(now);
   try{
     /* Adaptive Qualitaet: bei anhaltend niedriger Framerate die Render-Aufloesung senken */
@@ -8697,6 +8731,8 @@ function frame(now){
     const msg=String(e&&e.stack||e);
     if(msg!==lastFrameFault){console.error('Fehler in der Hauptschleife:',e);lastFrameFault=msg}
   }finally{
+    if(perfRaw>0&&perfRaw<2000)perfMs+=(perfRaw-perfMs)*.08;
+    paintPerfHud(now);
     requestAnimationFrame(frame);
   }
 }
@@ -11740,7 +11776,7 @@ car3.traverse(o=>{if(o.isMesh&&o!==sh){o.castShadow=true;o.receiveShadow=true;}}
    car remains as a fallback until the model has loaded successfully. */
 let lanciaWheelPivots=[],lanciaWheelSpin=0,lanciaModelReady=false,lanciaTireAccentMaterials=[],lanciaFitGroup=null;
 function loadLanciaMainVehicle(){
-  import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js').then(async({GLTFLoader})=>{
+  import('https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/loaders/GLTFLoader.js').then(async({GLTFLoader})=>{
     let rawGlb=null;
     const asset=document.getElementById('lancia-glb-data');
     if(asset&&asset.textContent.trim().length>1000){
@@ -13134,7 +13170,7 @@ function render3d(){
   lighting(ic,wx,y);updateExitGlow();updateGlare();updateWorldFx(y,ic);
   cullChunks();cullGrass();updFloods();
   updateGhosts();
-  R.render(S,cam3);mfxRestore();mfxOverlay(y);
+  R.render(S,cam3);perfCalls=R.info.render.calls;mfxRestore();mfxOverlay(y);
 }
 /* ===== v86: Ego-Perspektive (Cockpit / Stoßstange) + Rennhighlights mit Replay ===== */
 const rzClamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -14152,7 +14188,7 @@ function hlUiTick(){
   if(showFp!==fpShown){fpShown=showFp;fpBtn.style.display=showFp?'block':'none'}
 }
 
-function apply(){fenceCollisionActive=true;c3.style.display=on?'block':'none';mfxCv.style.display=on?'block':'none';aorVig.style.display=on?'block':'none';cv.style.visibility=on?'hidden':'visible';resize()}
+function apply(){fenceCollisionActive=true;c3.style.display=on?'block':'none';mfxCv.style.display=on?'block':'none';aorVig.style.display=on?'block':'none';cv.style.visibility=on?'hidden':'visible';if(!on)perfCalls=0;resize()}
 const _rs=resize;
 resize=function(){_rs();if(on){cv.width=cv.height=2}
   {
@@ -14178,7 +14214,7 @@ window.setTerrainSetting=function(v){
   try{localStorage.setItem('rallyTG',tgSel)}catch(e){}
   wPts=null;tgLbl();
 };
-const _d=draw;draw=function(){try{hlTick();hlUiTick()}catch(e){console.warn('v86',e)}if(on){const spdNow=Math.hypot(car.vx,car.vy),target=Math.max(0,Math.min(1,(spdNow-170)/330));speedFx+=(target-speedFx)*.07;try{rpRender3d()}catch(e){console.error('3D-Rendererfehler – wechsle auf die 2D-Ansicht.',e);on=false;try{localStorage.setItem('rally3d','0')}catch(_){}c3.style.display='none';aorVig.style.display='none';cv.style.visibility='visible';b.textContent='2D';try{resize()}catch(_){}try{_d()}catch(drawError){console.error('2D-Fallback',drawError)}}updateHudFast()}else _d()};
+const _d=draw;draw=function(){try{hlTick();hlUiTick()}catch(e){console.warn('v86',e)}if(on){const spdNow=Math.hypot(car.vx,car.vy),target=Math.max(0,Math.min(1,(spdNow-170)/330));speedFx+=(target-speedFx)*.07;try{rpRender3d()}catch(e){console.error('3D-Rendererfehler – wechsle auf die 2D-Ansicht.',e);on=false;perfCalls=0;try{localStorage.setItem('rally3d','0')}catch(_){}c3.style.display='none';aorVig.style.display='none';cv.style.visibility='visible';b.textContent='2D';try{resize()}catch(_){}try{_d()}catch(drawError){console.error('2D-Fallback',drawError)}}updateHudFast()}else _d()};
 apply();
 window.getRally3DMode=()=>on;
 window.setRally3DMode=function(v){on=!!v;try{localStorage.setItem('rally3d',on?'1':'0')}catch(e){}b.textContent=on?'3D':'2D';apply()};
@@ -14193,12 +14229,15 @@ requestAnimationFrame(()=>requestAnimationFrame(()=>{try{window.__bootDone&&wind
 const bootRallyStage = () => {
   try{window.__bootStep&&window.__bootStep(.15,'3D-Engine wird geladen …')}catch(e){}
   if (window.THREE) { initAppGame(); return; }
-  const threeScript = document.createElement('script');
-  threeScript.async = true;
-  threeScript.src = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js';
-  threeScript.onload = () => initAppGame();
-  threeScript.onerror = () => { console.warn('Three.js konnte nicht geladen werden – Rally Stage startet im 2D-Fallback.'); initAppGame(); };
-  document.head.appendChild(threeScript);
+  /* r187 liefert keinen UMD-Build (three.min.js) mehr. Das ES-Modul wird
+     geladen und weiterhin als window.THREE bereitgestellt, damit der
+     restliche Code unverändert bleibt. */
+  import('https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js')
+    .then(mod => { window.THREE = mod; initAppGame(); })
+    .catch(err => {
+      console.warn('Three.js konnte nicht geladen werden – Rally Stage startet im 2D-Fallback.', err);
+      initAppGame();
+    });
 };
 if(document.readyState === 'loading') window.addEventListener('DOMContentLoaded', bootRallyStage, {once:true});
 else bootRallyStage();
