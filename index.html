@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v128 · Three.js r187</title>
+<title>Rally Stage – Lancia Delta Integrale · v129 · Three.js r187</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -507,6 +507,7 @@ try{
 let gfxShadowRes=2048,gfxShadowDist=220,gfxGrassDist=960,gfxGrassDensity=100,camDistScale=1;
 let egoShake=1; // Kamerawackeln in der Ego-Ansicht (0 = aus, 1 = Standard, 1.5 = stark)
 let ghostRivals=3; // Anzahl der eingeblendeten Geisterrivalen (0 = aus)
+let noteDetail=1; // Ansagen-Genauigkeit: 0 = nur Richtung, 1 = Richtung + Länge (Standard), 2 = zusätzlich Stärke & Linie
 
 /* ===== v95: Schwierigkeit, Fahrhilfen, Pause, Bestzeiten, Renn-Analyse ===== */
 let gameDifficulty='adaptive', assistBrake=false, assistLine=false, steerSens=1, padDeadzone=0.14;
@@ -521,6 +522,7 @@ try{
   steerSens=Math.max(.5,Math.min(1.5,Number(localStorage.getItem('rallySteerSens')??1)||1));
   padDeadzone=Math.max(0,Math.min(.35,Number(localStorage.getItem('rallyPadDz')??.14)));
   ghostMine=localStorage.getItem('rallyGhostMine')!=='0';
+  const nd=Number(localStorage.getItem('rallyNoteDetail'));if(nd===0||nd===1||nd===2)noteDetail=nd;
   lastExportAt=Number(localStorage.getItem('rallyLastExport')||0)||0;
 }catch(e){}
 const DIFFICULTIES=[
@@ -836,6 +838,7 @@ function persistOptionsSettings(){
     localStorage.setItem('rallyGfxView',String(gfxViewDist));localStorage.setItem('rallyGfxProps',String(gfxPropDensity));
     localStorage.setItem('rallyGfxAutoQ',gfxAutoQ?'1':'0');localStorage.setItem('rallyGfxShowFps',gfxShowFps?'1':'0');
     localStorage.setItem('rallyGhosts',String(ghostRivals));
+    localStorage.setItem('rallyNoteDetail',String(noteDetail));
   }catch(e){ok=false;console.warn('Einstellungen konnten nicht gespeichert werden',e)}
   return ok;
 }
@@ -922,7 +925,7 @@ window.resetGfxSettings=function(){
   window.openGfxSettings();
 };
 window.resetGameplaySettings=function(){camDistScale=1;egoShake=1;ghostRivals=3;
-  gameDifficulty='adaptive';assistBrake=false;assistLine=false;steerSens=1;padDeadzone=.14;ghostMine=true;
+  gameDifficulty='adaptive';assistBrake=false;assistLine=false;steerSens=1;padDeadzone=.14;ghostMine=true;noteDetail=1;
   try{localStorage.setItem('rallyDifficulty','adaptive')}catch(e){}persistAssistSettings();if(typeof window.setCamModeFromUI==='function')window.setCamModeFromUI(0);if(typeof window.setTerrainSetting==='function')window.setTerrainSetting('auto');persistOptionsSettings();window.openGameplaySettings();};
 window.finishGfxSettings=function(){
   const ok=persistOptionsSettings();
@@ -1148,6 +1151,12 @@ if(revBtnEl)revBtnEl.addEventListener('click',e=>{e.preventDefault();toggleRever
 /* Ansage */
 let voice=true;
 function toggleVoice(){voice=!voice;$('snd').textContent='Ansage: '+(voice?'an':'aus');if(!voice&&window.speechSynthesis)speechSynthesis.cancel();saveGame();}
+const NOTE_DETAILS=[
+  {id:0,n:'Knapp',ic:'🔈',desc:'Nur die Richtung – „Rechts“. Länge und Stärke bleiben weg.'},
+  {id:1,n:'Normal',ic:'🗣️',desc:'Richtung und Länge, wie bisher – „Rechts“, „Links lang“.'},
+  {id:2,n:'Sehr genau',ic:'🎙️',desc:'Zusätzlich Stärke und Linie – „Rechts eng, innen halten“ oder „Links, weit ausholen“. Auf Englisch „tight inside“ und „go wide“.'}
+];
+function noteDetailInfo(){return NOTE_DETAILS[noteDetail]||NOTE_DETAILS[1]}
 $('snd').onclick=toggleVoice;
 let retArm=0,retTimer=null;
 $('ret').onclick=()=>{
@@ -1163,15 +1172,27 @@ $('ret').onclick=()=>{
 function say(t){
   // Sprachansagen sind ausschließlich für echte, nichtleere Richtungs-Pace-Notes reserviert.
   if(!voice||!window.speechSynthesis||typeof t!=='string'||!t.trim())return;
-  if(!/^(Links|Rechts)( lang)?(, dann (Links|Rechts)( lang)?)*$/.test(t.trim()))return;
+  if(!NOTE_SPEECH_RE.test(t.trim()))return;
   try{const u=new SpeechSynthesisUtterance(trNote(t.trim()));u.lang=LANGSP();u.rate=1.18;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}
 }
+/* Erlaubte gesprochene Ansagen: nur Pace-Notes in genau diesen Formen. */
+const NOTE_SPEECH_RE=/^(?:Links|Rechts|Schikane (?:links|rechts))(?:, (?:Kehre|eng|lang))*(?:, (?:innen halten|weit ausholen|zügig durch))?(?:, dann (?:Links|Rechts|Schikane (?:links|rechts))(?:, (?:Kehre|eng|lang))*(?:, (?:innen halten|weit ausholen|zügig durch))?)?$/;
 function noteTxt(n){
-  if(n.isJump)return 'Kuppe, Achtung Sprung';
-  if(n.chic)return 'Schikane '+(n.dir>0?'rechts':'links')+(n.sv===1?', Kehre':n.sv===2?', eng':'');
-  const d=n.dir>0?'rechts':'links';
-  let t=d.charAt(0).toUpperCase()+d.slice(1);
-  if(n.len>330&&n.sv>1)t+=' lang';
+  if(n.isJump||!n.dir)return '';
+  if(n.chic){
+    /* Schikanen werden erst in der genauesten Stufe angesagt. */
+    if(noteDetail<2)return '';
+    return 'Schikane '+(n.dir>0?'rechts':'links')+', zügig durch';
+  }
+  let t=n.dir>0?'Rechts':'Links';
+  if(noteDetail>=2){
+    if(n.sv===1)t+=', Kehre';
+    else if(n.sv===2)t+=', eng';
+    if(n.len>330&&n.sv>1)t+=', lang';
+    t+=n.sv<=2?', innen halten':', weit ausholen';
+  }else if(noteDetail>=1&&n.len>330&&n.sv>1){
+    t+=' lang';
+  }
   return t;
 }
 
@@ -4778,7 +4799,7 @@ window.openGameplaySettings=function(){
   const terrList=(typeof window.getTerrainOptions==='function')?window.getTerrainOptions():[['auto','Auto']];
   const terrCur=(typeof window.getTerrainSetting==='function')?window.getTerrainSetting():'auto';
   const terrBtns=terrList.map(m=>'<button class="btn sm '+(m[0]===terrCur?'':'sec')+'" onclick="window.pickTerrain(\''+m[0]+'\')">'+m[1]+'</button>').join('');
-  showCard('<h1>🎮 Gameplay-Einstellungen</h1><p>Stelle Perspektive, Terrainrelief, Kamera-Abstand, Kamerawackeln und die Geisterrivalen ein. Änderungen bleiben gespeichert.</p>'+
+  showCard('<h1>🎮 Gameplay-Einstellungen</h1><p>Stelle Perspektive, Terrainrelief, Kamera-Abstand, Kamerawackeln, Ansagen-Genauigkeit und die Geisterrivalen ein. Änderungen bleiben gespeichert.</p>'+
     '<label style="'+lab+'">📷 Kamera-Abstand zum Auto: <b id="camDistValue">'+pc+' %</b></label>'+
     '<input type="range" min="60" max="180" step="5" value="'+pc+'" style="width:100%" oninput="window.updateGfxSlider(\'cam\',this.value,\'camDistValue\')">'+
     '<div style="display:flex;justify-content:space-between;font-size:12px;opacity:.65;margin:2px 4px 0"><span>60 %</span><span>100 %</span><span>180 %</span></div>'+
@@ -4800,6 +4821,11 @@ window.openGameplaySettings=function(){
       '<button class="btn sm '+(assistBrake?'':'sec')+'" onclick="window.setAssist(\'brake\','+(!assistBrake)+')">🦶 Bremsassistent</button>'+
       '<button class="btn sm '+(ghostMine?'':'sec')+'" onclick="window.setAssist(\'mine\','+(!ghostMine)+')">👻 Bestzeit-Geist</button>'+
     '</div>'+
+    '<label style="'+lab+'">🎙️ Ansagen-Genauigkeit</label>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+      NOTE_DETAILS.map(d=>'<button class="btn sm '+(noteDetail===d.id?'':'sec')+'" style="flex:1 1 110px" onclick="window.setNoteDetail('+d.id+')">'+d.ic+' '+d.n+'</button>').join('')+
+    '</div>'+
+    '<p style="font-size:12px;opacity:.7;text-align:left;margin:6px 4px 0">'+noteDetailInfo().desc+'</p>'+
     '<label style="'+lab+'">🎚️ Lenk-Empfindlichkeit: <b id="steerSensValue">'+Math.round(steerSens*100)+' %</b></label>'+
     '<input type="range" min="50" max="150" step="5" value="'+Math.round(steerSens*100)+'" style="width:100%" oninput="window.setAssistValue(\'steer\',this.value)">'+
     '<label style="'+lab+'">🎮 Gamepad-Totzone: <b id="padDzValue">'+Math.round(padDeadzone*100)+' %</b></label>'+
@@ -4816,6 +4842,13 @@ window.pickCamMode=function(i){
 };
 window.pickTerrain=function(v){
   if(typeof window.setTerrainSetting==='function')window.setTerrainSetting(v);
+  window.openGameplaySettings();
+};
+window.setNoteDetail=function(i){
+  const v=Math.round(Number(i));
+  noteDetail=(v===0||v===1||v===2)?v:1;
+  const ok=persistOptionsSettings();
+  if(!ok&&typeof toast==='function')toast('Browser-Speicher blockiert: Einstellungen können nicht dauerhaft gespeichert werden.');
   window.openGameplaySettings();
 };
 function clearPauseState(){
@@ -7781,9 +7814,9 @@ brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
       n.said=true;
       if(n.isJump||n.sv>3||!n.dir)continue;
       let txt=noteTxt(n);
-      if(!/^(Links|Rechts)( lang)?$/.test(txt))continue;
+      if(!txt)continue;
       const m=notes[i+1];
-      if(m&&(m.s-n.e)*STEP<170&&!m.isJump&&m.sv<=3&&m.dir){const next=noteTxt(m);if(/^(Links|Rechts)( lang)?$/.test(next)){m.said=true;txt+=', dann '+next}}
+      if(m&&(m.s-n.e)*STEP<170&&!m.isJump&&m.sv<=3&&m.dir){const next=noteTxt(m);if(next){m.said=true;txt+=', dann '+next}}
       say(txt);break;
     }
   }
@@ -9058,7 +9091,7 @@ function trBuild(){
   trCache.clear();trRulesLang=LANG;
 }
 /* Pace-Notes: "Links lang, dann Rechts" → "Left long, then Right" */
-function trNote(s){return LANG==='en'?s.replace(/\bLinks\b/g,'Left').replace(/\bRechts\b/g,'Right').replace(/\blang\b/g,'long').replace(/\bdann\b/g,'then'):s}
+function trNote(s){return LANG==='en'?s.replace(/\bLinks\b/g,'Left').replace(/\bRechts\b/g,'Right').replace(/\blang\b/g,'long').replace(/\bKehre\b/g,'hairpin').replace(/\beng\b/g,'tight').replace(/\bSchikane\b/g,'Chicane').replace(/\binnen halten\b/g,'tight inside').replace(/\bweit ausholen\b/g,'go wide').replace(/\bzügig durch\b/g,'keep it flowing').replace(/\bdann\b/g,'then'):s}
 const NOTE_RE=/^(Links|Rechts)( lang)?(, dann (Links|Rechts)( lang)?)*$/;
 function tr(s){
   if(LANG==='de'||typeof s!=='string'||s.length<3)return s;
