@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v120 · Three.js r187</title>
+<title>Rally Stage – Lancia Delta Integrale · v121 · Three.js r187</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -6021,8 +6021,10 @@ function showCard(h, wide=false){
 
 /* ===== Sounddesign =====
    Mehrschichtige Web-Audio-Engine (alles synthetisch, keine Dateien):
-   • Motor: Sägezahn + Sub-Square + verstimmte 2. Säge → leichte Sättigung → Tiefpass (öffnet mit Last/Drehzahl),
-     dazu Ansaug-/Auspuff-Rauschen. Drehzahl folgt einem 6-Gang-Getriebe (Schaltvorgänge hörbar, Drehzahlabfall).
+   • Motor: additive Auspuff-Wellenform (2.–4. Harmonische betont) + Sub-Oktave + verstimmte Lage,
+     Sättigung → Tiefpass → drei feste Resonanzen (Krümmer/Dämpfer/Blech), deren Pegel mit der Last steigen.
+     Der Zylindertakt moduliert die Lautstärke mit halber Zündfrequenz (Leerlauf-Lümmeln), dazu Mechanik-
+     und Ansaugrauschen. Drehzahl folgt einem 6-Gang-Getriebe (Schaltvorgänge hörbar, Drehzahlabfall).
    • Turbo-Pfeifen unter Last, Blow-off + Fehlzündungs-Knallen beim Gaswegnehmen.
    • Untergrund: Asphalt-Zischen, Schotter-Rollen, Eis-Hauch, Wind ∝ Tempo², Quietschen/Rutschgeräusch bei Drift.
    • Ereignisse: Countdown, Mess-Tore, Crash/Schrammen, Landung, Sprung, Radverlust, Boxenstopp, Ziel, Reserve-Warnung.
@@ -6042,22 +6044,49 @@ function audio(){
     const noise=()=>{const n=A.createBufferSource();n.buffer=nb;n.loop=true;n.start(0,Math.random()*1.5);return n};
     const filt=(type,f,q)=>{const x=A.createBiquadFilter();x.type=type;x.frequency.value=f;x.Q.value=q||1;return x};
     const gain=v=>{const x=A.createGain();x.gain.value=v;return x};
-    // Motor
-    const o1=A.createOscillator(),o2=A.createOscillator(),o3=A.createOscillator();
-    o1.type='sawtooth';o2.type='square';o3.type='sawtooth';o3.detune.value=9;
-    const mix=gain(1),g2=gain(.45),g3=gain(.55);
+    // Motor: additive Auspuff-Wellenform + Sub-Oktave + verstimmte Lage + 2. Harmonische
+    const o1=A.createOscillator(),o2=A.createOscillator(),o3=A.createOscillator(),o4=A.createOscillator();
+    o1.type='sawtooth';o2.type='square';o3.type='sawtooth';o3.detune.value=9;o4.type='sine';
+    /* Klangfarbe: Eine echte Auspuffanlage hat mehr Energie in der 2.–4. Harmonischen
+       (das „Bellen") als ein reiner Sägezahn. Die Wellenform wird deshalb additiv gebaut,
+       mit leicht unregelmäßigen Phasen, damit sie nicht synthetisch flächig klingt. */
+    try{
+      const NH=22,hR=new Float32Array(NH+1),hI=new Float32Array(NH+1);
+      for(let n=1;n<=NH;n++)hI[n]=Math.pow(n,-1.12)*(n===2?.85:1)*(n===3?.8:1)*Math.cos(n*1.7);
+      o1.setPeriodicWave(A.createPeriodicWave(hR,hI));
+    }catch(e){}
+    const mix=gain(1),g2=gain(.5),g3=gain(.42),g4=gain(.3);
     const ws=A.createWaveShaper(),curve=new Float32Array(257);
     for(let i=0;i<257;i++){const x=i/128-1;curve[i]=Math.tanh(x*2.4)}
-    ws.curve=curve;
-    const lp=filt('lowpass',900,2.2),eng=gain(0);
-    o1.connect(mix);o2.connect(g2);g2.connect(mix);o3.connect(g3);g3.connect(mix);
-    mix.connect(ws);ws.connect(lp);lp.connect(eng);eng.connect(g);
+    ws.curve=curve;ws.oversample='2x';
+    /* Drei feste Resonanzen (Krümmer, Schalldämpfer, Blech) formen aus dem Sägezahn
+       erst den röhrenden Vierzylinder; ihre Pegel folgen der Last. */
+    const lp=filt('lowpass',900,2.2),res1=filt('peaking',165,3.2),res2=filt('peaking',620,2.4),res3=filt('peaking',1900,1.6);
+    res1.gain.value=5;res2.gain.value=3;res3.gain.value=1.5;
+    const eng=gain(0);
+    /* Zylindertakt: die Verbrennungsstöße modulieren die Lautstärke mit halber
+       Zündfrequenz – im Stand lümmelt der Motor dadurch hörbar, oben herum verschmiert es.
+       Ein langsames Lope-Signal sorgt zusätzlich für unruhigen Leerlauf. */
+    const am=A.createOscillator();am.type='sine';am.frequency.value=15;
+    const amD=gain(.16),amN=gain(1),lope=A.createOscillator(),lopeAmp=gain(.02);
+    lope.type='sine';lope.frequency.value=4.7;
+    lope.connect(lopeAmp);lopeAmp.connect(amD.gain);
+    am.connect(amD);amD.connect(amN.gain);
+    o1.connect(mix);o2.connect(g2);g2.connect(mix);o3.connect(g3);g3.connect(mix);o4.connect(g4);g4.connect(mix);
+    mix.connect(ws);ws.connect(lp);lp.connect(res1);res1.connect(res2);res2.connect(res3);res3.connect(eng);
+    eng.connect(amN);amN.connect(g);
     // Ansaug-/Auspuff-Rauschen
     const rasp=gain(0),raspF=filt('bandpass',500,1.2);
     const nRasp=noise();nRasp.connect(raspF);raspF.connect(rasp);rasp.connect(g);
+    // Mechanik: Ventiltrieb und Einspritzung als feines, drehzahlabhängiges Zischen
+    const nMech=noise(),mechF=filt('bandpass',3000,1.6),mechG=gain(0);
+    nMech.connect(mechF);mechF.connect(mechG);mechG.connect(g);
     // Turbo-Pfeifen
     const to=A.createOscillator();to.type='sine';to.frequency.value=720;
     const tg=gain(0);to.connect(tg);tg.connect(g);
+    // Turbolader-Anströmen: breitbandiges Rauschen, das mit dem Ladedruck steigt
+    const nTur=noise(),turF=filt('bandpass',1800,.9),turG=gain(0);
+    nTur.connect(turF);turF.connect(turG);turG.connect(g);
     // Untergrund-Rollgeräusch
     const nRoad=noise(),roadF=filt('bandpass',1100,.6),roadG=gain(0);
     nRoad.connect(roadF);roadF.connect(roadG);roadG.connect(g);
@@ -6071,8 +6100,8 @@ function audio(){
     const soF=filt('bandpass',650,1.1),soG=gain(0);so.connect(soF);soF.connect(soG);soG.connect(g);
     const nSl=noise(),slF=filt('bandpass',1300,1.1),slG=gain(0);
     nSl.connect(slF);slF.connect(slG);slG.connect(g);
-    [o1,o2,o3,to,so].forEach(o=>o.start());
-    au={A,g,m:comp,nb,o1,o2,o3,lp,eng,rasp,raspF,tg,to,roadF,roadG,windF,windG,ambF,ambG,so,soF,soG,slF,slG,
+    [o1,o2,o3,o4,to,so,am,lope].forEach(o=>o.start());
+    au={A,g,m:comp,nb,o1,o2,o3,o4,am,amD,amN,lopeAmp,res1,res2,res3,mechF,mechG,turF,turG,lp,eng,rasp,raspF,tg,to,roadF,roadG,windF,windG,ambF,ambG,so,soF,soG,slF,slG,
         gear:0,lastG:0,cd:0,shiftT:0,rpm:950,surf:-1};
   }catch(e){}
 }
@@ -6124,6 +6153,8 @@ function sndEvent(name,v){
       case 'jump':sndNoise(.45,'highpass',500,3200,.05,.8);break;
       case 'wheel':sndTone('sine',720,690,.5,.09);sndTone('sine',1140,1100,.4,.06);sndNoise(.2,'bandpass',2400,900,.12,1.5);break;
       case 'blow':sndNoise(.42,'highpass',1800,5200,.085,.7);sndTone('sine',2600,1500,.36,.012);break;
+      /* v121: Ansaug-Bellen beim Gasstoß – kurz, mittig, mit etwas Körnung. */
+      case 'bark':sndNoise(.13,'bandpass',700,1500,.1,1.1);sndTone('sawtooth',190,120,.1,.03);break;
       case 'pop':sndNoise(.07,'bandpass',420+Math.random()*320,180,.12+Math.random()*.06,1.4);break;
       /* v119: Schaltgeräusche. Mechanisches Einrasten der Schaltgabel (kurzer
          metallischer Klack + sattes Tiefton-Einrasten), beim Runterschalten
@@ -6171,15 +6202,28 @@ function sfx(sp,slip,gas,ex){
   au.o1.frequency.setTargetAtTime(f0,r,.035);
   au.o2.frequency.setTargetAtTime(f0*.5,r,.035);
   au.o3.frequency.setTargetAtTime(f0,r,.035);
+  au.o4.frequency.setTargetAtTime(f0*2,r,.035);
+  au.am.frequency.setTargetAtTime(f0*.5,r,.035);
   au.o3.detune.setTargetAtTime(hp<40?(Math.random()-.5)*70:9,r,.02);   // angeschlagener Motor klingt rau
   const load=live?(g?1:.38):0, duck=(r<au.shiftT)?.35:1, rn=Math.min(1,rpm/7500);
-  au.eng.gain.setTargetAtTime((live?(.05+.065*load+.016*ratio)*duck:0)*motorVolume,r,.04);
-  au.lp.frequency.setTargetAtTime(480+rpm*.22+load*950,r,.05);
+  au.eng.gain.setTargetAtTime((live?(.042+.055*load+.014*ratio)*duck:0)*motorVolume,r,.04);
+  au.lp.frequency.setTargetAtTime(420+rpm*.2+load*880,r,.05);
+  au.res1.gain.setTargetAtTime(3+3.5*load,r,.08);
+  au.res2.gain.setTargetAtTime(1.5+4*load,r,.08);
+  au.res3.gain.setTargetAtTime((.5+3.2*load)*(.45+.55*rn),r,.08);
+  au.amD.gain.setTargetAtTime(.06+.1*(1-rn),r,.12);
+  au.lopeAmp.gain.setTargetAtTime(.028*(1-Math.min(1,rpm/3200)),r,.25);
   au.raspF.frequency.setTargetAtTime(300+rpm*.12,r,.05);
   au.rasp.gain.setTargetAtTime((live?(.012+.034*load*rn)*duck:0)*motorVolume,r,.05);
+  au.mechF.frequency.setTargetAtTime(2200+rpm*.34,r,.1);
+  au.mechG.gain.setTargetAtTime((live?(.0032+.0075*load)*(.3+.7*rn):0)*duck*motorVolume,r,.08);
   // Turbo pfeift unter Last, Blow-off + Knallen beim Gaswegnehmen
   au.to.frequency.setTargetAtTime(1300+ratio*2600+(g?500:0)+DRIVE.boost*260,r,.12);
   au.tg.gain.setTargetAtTime((live&&g&&ratio>.18?(.0004+.0012*Math.min(1,ratio))*(0.45+0.55*DRIVE.boost):0)*motorVolume,r,g?.18:.06);
+  au.turF.frequency.setTargetAtTime(1200+DRIVE.boost*2800,r,.12);
+  au.turG.gain.setTargetAtTime((live&&g&&ratio>.12?(.0016+.0075*DRIVE.boost)*Math.min(1,ratio*1.7):0)*motorVolume,r,.14);
+  // Gasstoß aus dem Schiebebetrieb: kurzes Ansaug-Bellen
+  if(live&&!au.lastG&&g&&ratio>.12)sndEvent('bark');
   if(au.lastG&&!g&&live&&ratio>.45&&r>au.cd){
     au.cd=r+.8;sndEvent('blow');
     for(let k=0;k<3;k++)setTimeout(()=>{if(au&&state==='play')sndEvent('pop')},70+k*80+Math.random()*50);
