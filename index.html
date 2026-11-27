@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v117 · Three.js r187</title>
+<title>Rally Stage – Lancia Delta Integrale · v118 · Three.js r187</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -1125,6 +1125,8 @@ let reverseGear=false,hudGearTopRef=460;
 function autoGearText(){
   const sp=Math.hypot(car.vx,car.vy),fwd=car.vx*Math.cos(car.a)+car.vy*Math.sin(car.a);
   if(reverseGear||fwd<-2)return 'R';
+  /* v118: Im Rennen zeigt die Anzeige den tatsächlich eingelegten Gang. */
+  if(state==='play'||state==='count')return String(Math.max(1,Math.min(6,DRIVE.gear|0)));
   const ratio=Math.max(0,Math.min(1.25,sp/Math.max(80,hudGearTopRef)));
   return String(Math.min(6,Math.floor(Math.min(5.99,ratio*5.4))+1));
 }
@@ -1257,6 +1259,30 @@ let BI=BIOMES[0], trackType='normal', trackLenMod='medium', weatherSel=-1, tod=0
 
 /* Power-Scaling: Upgrade-Stufen wirken schwächer, Grundtempo ist niedriger */
 const LV_STEP=0.022, LV_TOP=0.016, ACC_BASE=220, SPD_K=.80, REV_MAX=70;
+/* v118: sechs echte Fahrstufen statt einer konstanten Beschleunigung.
+   GEAR_TOP = Anteil am Höchsttempo, GEAR_RED = relative Zugkraft des Gangs.
+   Die Drehmomentkurve hat ihr Maximum bei ~4100 U/min; darüber und darunter
+   fällt sie ab. Zusammen mit dem Turboloch und den Schaltpausen ergibt das
+   spürbare Gangwechsel, ohne das Auto insgesamt langsamer zu machen. */
+const GEAR_TOP=[.32,.46,.60,.74,.87,1],GEAR_RED=[1.60,1.50,1.40,1.32,1.25,1.21];
+const DRIVE={gear:1,rpm:950,cut:0,boost:0};
+function driveReset(){DRIVE.gear=1;DRIVE.rpm=950;DRIVE.cut=0;DRIVE.boost=0}
+function driveTorque(rpm){const x=(rpm-4100)/2900;return Math.max(.86,1-.24*x*x)}
+function driveUpdate(dt,vf,gas,air){
+  const top=Math.max(80,hudGearTopRef||324),sp=Math.abs(vf);
+  if(DRIVE.cut>0)DRIVE.cut=Math.max(0,DRIVE.cut-dt);
+  let g=DRIVE.gear;
+  // Automatik: kurz vor der Nenndrehzahl hoch, weit unten wieder zurück.
+  if(!air){
+    if(g<6&&sp>top*GEAR_TOP[g-1]*.985&&DRIVE.cut<=0){g++;DRIVE.cut=.10}
+    else if(g>1&&sp<top*GEAR_TOP[g-2]*.62&&DRIVE.cut<=0){g--;DRIVE.cut=.09}
+  }
+  DRIVE.gear=g;
+  DRIVE.rpm=950+Math.min(1.02,sp/Math.max(30,top*GEAR_TOP[g-1]))*6100;
+  // Turboloch: Leistung baut sich erst auf, wenn das Gas länger steht.
+  const want=(gas>.5&&!air)?1:0;
+  DRIVE.boost+=(want-DRIVE.boost)*(1-Math.exp(-dt*(want?3:6)));
+}
 /* Teile & Autokonfiguration */
 const PARTS={
   tires:[
@@ -4862,6 +4888,100 @@ function ctSave(){try{localStorage.setItem('rallyCustomTrack',JSON.stringify({b:
 function ctLoad(){try{const r=JSON.parse(localStorage.getItem('rallyCustomTrack')||'null');
   if(r&&r.p&&r.p.length>40&&r.s&&r.s.length===r.p.length)customTrack={b:r.b|0,p:r.p.map(a=>({x:a[0]/10,y:a[1]/10,h:a[2]/1000})),s:r.s.split('').map(v=>Number(v)-2)}}catch(e){}}
 ctLoad();
+/* v118: Strecken-Code zum Teilen eigener Strecken.
+   Aufbau: "RS2-" + base64url. Binär: Kennung, Biom (1 Byte), Punktzahl (uint16),
+   Startpunkt x/y/Kurswinkel (3 × float32), danach je Folgpunkt die Winkel-
+   änderung in 1/1000 rad (int16) und die Steigungsstufe (1 Byte). Die Punkte
+   werden wie im Editor mit STEP-Abstand aus dem Winkelverlauf rekonstruiert –
+   dadurch braucht der Code nur ~3 Byte pro Streckenmeter statt ~18 im JSON. */
+function ctB64(bytes){let s='';const CH=0x8000;for(let i=0;i<bytes.length;i+=CH)s+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function ctUnb64(code){
+  const s=String(code).replace(/-/g,'+').replace(/_/g,'/');
+  const bin=atob(s+'='.repeat((4-s.length%4)%4)),out=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);
+  return out;
+}
+function ctEncode(){
+  if(!customTrack||!customTrack.p||customTrack.p.length<40)return '';
+  const P=customTrack.p,S=customTrack.s||[],n=P.length,buf=new Uint8Array(18+7*(n-1)),dv=new DataView(buf.buffer);
+  buf[0]=82;buf[1]=83;buf[2]=50;buf[3]=Math.max(0,Math.min(BIOMES.length-1,customTrack.b|0));
+  dv.setUint16(4,n,true);dv.setFloat32(6,P[0].x,true);dv.setFloat32(10,P[0].y,true);dv.setFloat32(14,P[0].h,true);
+  let o=18;
+  // Jeder Folgpunkt: Verschiebung (1/100 Einheit, int16) und absoluter, auf ±π
+  // normierter Kurswinkel (1/1000 rad). Absolute Winkel verhindern, dass sich
+  // Rundungsfehler über hunderte Punkte zu einem schiefen Kurs aufsummieren.
+  for(let i=1;i<n;i++){
+    const dx=Math.max(-30000,Math.min(30000,Math.round((P[i].x-P[i-1].x)*100)));
+    const dy=Math.max(-30000,Math.min(30000,Math.round((P[i].y-P[i-1].y)*100)));
+    const hh=Math.max(-32000,Math.min(32000,Math.round(ctWrap(P[i].h)*1000)));
+    dv.setInt16(o,dx,true);dv.setInt16(o+2,dy,true);dv.setInt16(o+4,hh,true);o+=6;
+    buf[o++]=(Math.max(-2,Math.min(2,S[i]|0))+2);
+  }
+  return 'RS2-'+ctB64(buf);
+}
+function ctDecode(code){
+  let s=String(code||'').trim();
+  const at=s.indexOf('RS2-');if(at>=0)s=s.slice(at+4);
+  const buf=ctUnb64(s);
+  if(buf.length<21||buf[0]!==82||buf[1]!==83||buf[2]!==50)throw new Error('Format');
+  const dv=new DataView(buf.buffer),b=buf[3],n=dv.getUint16(4,true);
+  if(n<40||n>ED_MAX||buf.length<18+7*(n-1))throw new Error('Länge');
+  const P=[{x:dv.getFloat32(6,true),y:dv.getFloat32(10,true),h:dv.getFloat32(14,true)}],S=[0];
+  let o=18;
+  for(let i=1;i<n;i++){
+    const dx=dv.getInt16(o,true),dy=dv.getInt16(o+2,true),hh=dv.getInt16(o+4,true);o+=6;
+    const sl=Math.max(-2,Math.min(2,(buf[o++]&7)-2));
+    const L=P[i-1];
+    P.push({x:L.x+dx/100,y:L.y+dy/100,h:hh/1000});S.push(sl);
+  }
+  return {b:Math.max(0,Math.min(BIOMES.length-1,b|0)),p:P,s:S};
+}
+function ctCopy(txt,msg){
+  const fallback=()=>{try{const t=document.createElement('textarea');t.value=txt;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();toast(msg)}catch(e){toast('Kopieren nicht möglich')}};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>toast(msg)).catch(fallback);
+  else fallback();
+}
+window.copyTrackCode=function(){ctCopy(window.__ctShare||'','📋 Code kopiert')};
+window.copyTrackLink=function(){ctCopy(location.origin+location.pathname+'?track='+encodeURIComponent(window.__ctShare||''),'🌐 Link kopiert')};
+window.openTrackShare=function(){
+  if(!customTrack||!customTrack.p){toast('Noch keine eigene Strecke');return}
+  let code='';try{code=ctEncode()}catch(e){console.warn('Strecken-Code',e)}
+  if(!code){toast('Code konnte nicht erzeugt werden');return}
+  window.__ctShare=code;
+  const B=BIOMES[customTrack.b]||BIOMES[0],http=/^https?:/.test(location.protocol);
+  showCard('<h1>🔗 Strecke teilen</h1><p>Der Code enthält Biom, Verlauf und Steigungen deiner Strecke. Kopieren und weitergeben – der Empfänger lädt ihn hier oder direkt über den Link.</p>'+
+   '<textarea id="ctCode" readonly style="width:100%;height:110px;font:11px/1.35 monospace;background:#0a140d;color:#d8e6d8;border:1px solid #2c4433;border-radius:8px;padding:8px;box-sizing:border-box;resize:none">'+code+'</textarea>'+
+   '<p style="font-size:12px;color:#a9b8a8">'+B.ic+' '+B.n+' · '+Math.round(customTrack.p.length*STEP)+' m · '+code.length+' Zeichen'+(http?'':' · Link erst auf einer Webseite verfügbar')+'</p>'+
+   '<button class="btn" onclick="copyTrackCode()">📋 Code kopieren</button>'+
+   (http?'<button class="btn sec" onclick="copyTrackLink()">🌐 Link kopieren</button>':'')+
+   '<button class="btn sec" onclick="openTrackImport()">📥 Code einfügen</button>'+
+   '<button class="btn sec" onclick="openSingleSetup()">Zurück</button>');
+};
+window.openTrackImport=function(){
+  showCard('<h1>📥 Strecke laden</h1><p>Füge den Code einer geteilten Strecke ein. Er ersetzt deine aktuelle Eigenstrecke.</p>'+
+   '<textarea id="ctIn" spellcheck="false" placeholder="RS2-…" style="width:100%;height:110px;font:11px/1.35 monospace;background:#0a140d;color:#d8e6d8;border:1px solid #2c4433;border-radius:8px;padding:8px;box-sizing:border-box;resize:none"></textarea>'+
+   '<button class="btn" onclick="loadTrackCode()">✅ Strecke übernehmen</button>'+
+   '<button class="btn sec" onclick="openSingleSetup()">Zurück</button>');
+};
+window.loadTrackCode=function(){
+  const el=document.getElementById('ctIn');
+  try{
+    const t=ctDecode(el?el.value:'');
+    customTrack=t;useCustom=true;ctSave();
+    toast('✅ Strecke geladen · '+Math.round(t.p.length*STEP)+' m');
+    window.openSingleSetup();
+  }catch(e){console.warn('Strecken-Code ungültig',e);toast('❌ Code nicht erkannt')}
+};
+/* Link mit ?track=… öffnet die geteilte Strecke direkt. */
+(function(){
+  try{
+    const q=new URLSearchParams(location.search).get('track');
+    if(!q)return;
+    const t=ctDecode(q);
+    customTrack=t;useCustom=true;ctSave();
+    setTimeout(()=>{try{toast('🔗 Geteilte Strecke geladen · '+Math.round(t.p.length*STEP)+' m')}catch(e){}},600);
+  }catch(e){console.warn('Geteilte Strecke aus dem Link konnte nicht geladen werden:',e)}
+})();
 (function(){
   const st=document.createElement('style');
   st.textContent="#slopeHud{position:fixed;top:62px;left:50%;transform:translateX(-50%);z-index:7;display:none;pointer-events:none;padding:5px 12px;border-radius:12px;font:700 13px 'Chakra Petch',sans-serif;background:rgba(10,16,12,.78);border:1px solid rgba(255,255,255,.25);color:#fff}body.play #slopeHud.on{display:block}"+
@@ -4989,6 +5109,8 @@ function customHtml(){
   const has=!!customTrack;
   let h='<div class="sec-l">✏️ Eigene Strecke</div><div class="maps"><button class="chip" onclick="openTrackEditor()">✏️ '+(has?'Strecke bearbeiten':'Strecke malen')+'</button>';
   if(has)h+='<button class="chip'+(useCustom?' on':'')+'" onclick="toggleCustomTrack()">'+(useCustom?'✅ Eigene Strecke aktiv':'Eigene Strecke nutzen')+'</button>';
+  if(has)h+='<button class="chip" onclick="openTrackShare()">🔗 Strecke teilen</button>';
+  h+='<button class="chip" onclick="openTrackImport()">📥 Code laden</button>';
   h+='</div>';
   if(has&&useCustom){const B=BIOMES[customTrack.b]||BIOMES[0];h+='<p style="font-size:12px;color:#a9b8a8;margin:2px 0">'+B.ic+' '+B.n+' · '+Math.round(customTrack.p.length*STEP)+' m · Karte, Streckentyp und Länge werden ignoriert</p>'}
   return h;
@@ -6010,10 +6132,12 @@ function sfx(sp,slip,gas,ex){
   // Untergrund (0 Asphalt, 1 Schotter/Erde, 2 Eis) – Filter nur bei Wechsel setzen
   const surf=BI.asphalt?0:BI.ice?2:1;
   if(surf!==au.surf){au.surf=surf;au.roadF.frequency.setTargetAtTime(surf===0?1150:surf===2?2800:620,r,.05);au.roadF.Q.value=surf===1?.35:.7}
-  // 6-Gang-Getriebe: Gang aus Tempo, Drehzahl im Gang
-  const gp=Math.min(5.99,ratio*5.4),gear=Math.floor(gp),frac=gp-gear;
-  let rpm=ratio<.012?(950+g*2300):(1350+frac*(gear===0?4700:4300));
-  if(state==='count')rpm=950+Math.sin(r*9)*35;
+  // 6-Gang-Getriebe: im Rennen liefert die Physik Gang und Drehzahl (v118),
+  // außerhalb (Garage, Menü, Attract-Modus) wird sie weiter aus dem Tempo geschätzt.
+  const gp=Math.min(5.99,ratio*5.4);let gear=Math.floor(gp);
+  let rpm=ratio<.012?(950+g*2300):(1350+(gp-gear)*(gear===0?4700:4300));
+  if(live&&DRIVE.rpm>0){gear=Math.max(0,DRIVE.gear-1);rpm=DRIVE.rpm;}
+  else if(state==='count')rpm=950+Math.sin(r*9)*35;
   if(air)rpm=Math.min(7600,rpm+1200);
   if(gear!==au.gear){
     if(live&&ratio>.05&&gear>au.gear)au.shiftT=r+.075;
@@ -6031,8 +6155,8 @@ function sfx(sp,slip,gas,ex){
   au.raspF.frequency.setTargetAtTime(300+rpm*.12,r,.05);
   au.rasp.gain.setTargetAtTime((live?(.012+.034*load*rn)*duck:0)*motorVolume,r,.05);
   // Turbo pfeift unter Last, Blow-off + Knallen beim Gaswegnehmen
-  au.to.frequency.setTargetAtTime(1300+ratio*2600+(g?500:0),r,.12);
-  au.tg.gain.setTargetAtTime((live&&g&&ratio>.18?(.0004+.0012*Math.min(1,ratio)):0)*motorVolume,r,g?.18:.06);
+  au.to.frequency.setTargetAtTime(1300+ratio*2600+(g?500:0)+DRIVE.boost*260,r,.12);
+  au.tg.gain.setTargetAtTime((live&&g&&ratio>.18?(.0004+.0012*Math.min(1,ratio))*(0.45+0.55*DRIVE.boost):0)*motorVolume,r,g?.18:.06);
   if(au.lastG&&!g&&live&&ratio>.45&&r>au.cd){
     au.cd=r+.8;sndEvent('blow');
     for(let k=0;k<3;k++)setTimeout(()=>{if(au&&state==='play')sndEvent('pop')},70+k*80+Math.random()*50);
@@ -6105,7 +6229,7 @@ window.start=function(){
   const p=pts[START_TRACK_INDEX];
   Object.assign(car,{x:p.x,y:p.y,a:p.h,vx:0,vy:0,z:0,vz:0,st:0,hbSlip:0,
   hp:(wmActive&&!wmIsFreeWeekend&&Number.isFinite(carCondition))?Math.max(20,Math.min(100,carCondition)):100,wheels:[1,1,1,1],fuel:fuelLoad,lowFuelWarn:false,limpWarn:false});
-  cam.x=p.x;cam.y=p.y;setReverseGear(false);
+  cam.x=p.x;cam.y=p.y;setReverseGear(false);driveReset();
   runMaxRatio=0;runJumps=0;runAirFlag=false;speedHoldSeconds=0;resShield=1;resBoost=0;resBuild=0;resLaunch=0;resRunReset();questMilestoneToast=false;
   raceStats={crashes:0,scrapes:0,offroad:0,top:0,fuelStart:fuelLoad};
   splits=[];
@@ -6361,7 +6485,7 @@ window.startNextAltStage=function(){
 
   const p=pts[START_TRACK_INDEX];
   Object.assign(car,{x:p.x,y:p.y,a:p.h,vx:0,vy:0,z:0,vz:0,st:0,hbSlip:0,fuel:Math.min(getTankCapacity(),pitTargetFuel),lowFuelWarn:false,limpWarn:false});
-  cam.x=p.x;cam.y=p.y;setReverseGear(false);
+  cam.x=p.x;cam.y=p.y;setReverseGear(false);driveReset();
   runMaxRatio=0;runJumps=0;runAirFlag=false;speedHoldSeconds=0;resShield=1;resBoost=0;resBuild=0;resLaunch=0;resRunReset();
   idx=START_TRACK_INDEX;nextSplit=1;cutCd=0;cutTime=0;cutWarned=false;marks=[];debris=[];fx=[];pL=pR=null;lastNoteHtml='';if(typeof window.clearRallySkidMarks==='function')window.clearRallySkidMarks();
   const wObj=WEATHERS[weather]||WEATHERS[0];
@@ -7110,6 +7234,15 @@ brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
   const downforce = 1 + (st.aero - 1) * 0.9 * dfSpeed;
 
   const accel = ACC_BASE * st.acc * wheelPenalty / st.wt;
+  /* v118: Gang, Drehzahl und Ladedruck aktualisieren und die Zugkraft daraus
+     ableiten. Während der Schaltpause (cut) liegt keine Leistung an. */
+  driveUpdate(dt,vf,gas,airborne);
+  const gearRaw=GEAR_RED[DRIVE.gear-1]*driveTorque(DRIVE.rpm)*(0.98+0.08*DRIVE.boost);
+  /* Bei hohem Tempo läuft die Zugkraft auf den alten, konstanten Wert zu: so bleiben
+     Endgeschwindigkeit und Balance gegenüber den Geisterrivalen unverändert. */
+  const gearBlend=1-0.50*Math.min(1,Math.abs(vf)/Math.max(60,(hudGearTopRef||324)*.9));
+  const gearPull=DRIVE.cut>0?0:1+(gearRaw-1)*gearBlend;
+  const driveAccel=accel*gearPull;
   if(gas > 0 && !airborne){
     if(reverseGear){
       /* Rückwärtsgang: erst die Vorwärtsfahrt sauber abbauen, dann langsam
@@ -7117,8 +7250,13 @@ brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
       if(vf > 2) vf = Math.max(0, vf - 240 * dt * gas);
       else vf = Math.max(-REV_MAX, vf - accel * 0.28 * dt * gas);
     }else{
-      vf += accel * dt * gas * (hb ? 0.85 : 1.0);
+      vf += driveAccel * dt * gas * (hb ? 0.85 : 1.0);
     }
+  }
+  /* Motorbremse: Gas weg heißt im kleinen Gang deutlich mehr Verzögerung. */
+  if(gas<=0.02&&!brake&&!airborne&&!reverseGear&&Math.abs(vf)>6){
+    const eb=(4+2.6*DRIVE.gear)*(0.5+0.5*Math.min(1,DRIVE.rpm/6800));
+    vf-=Math.sign(vf)*eb*dt;
   }
   if(brake > 0 && !airborne){
     /* Kräftig, aber nicht schlagartig verzögern. Die Bremse hält bei 0 an und
@@ -8968,6 +9106,22 @@ function applyShadowCfg(){
   shadowTick=0;R.shadowMap.needsUpdate=true;
 }
 applyShadowCfg();
+/* v118: Shader und Schattenmaterialien einmal vorwärmen. Bisher entstand das
+   Programm für die Variante mit Höhlenlicht erst beim ersten Tunneleintritt –
+   genau daher kam der Ruckler. three legt pro Lichtanzahl ein eigenes Programm
+   an, deshalb werden beide Varianten (offene Strecke und Tunnel) gebacken. */
+let shadersWarm=false;
+function prewarmShaders(){
+  if(shadersWarm)return;
+  try{
+    const cv=caveLight.visible;
+    caveLight.visible=false;R.compile(S,cam3);
+    caveLight.visible=true;R.compile(S,cam3);
+    caveLight.visible=cv;
+    R.render(S,cam3);
+    shadersWarm=true;
+  }catch(e){console.warn('Shader-Prewarm',e)}
+}
 S.fog=new T.Fog(0xe7dfc9,360,2350);
 const col=(s,f)=>{let c;try{c=new T.Color(s)}catch(e){c=new T.Color(f||'#777')}const paleDesert=typeof BI!=='undefined'&&BI&&BI.n==='Wüste';if(paleDesert)return c;const h={};c.getHSL(h);return c.setHSL((h.h+.012+1)%1,h.s>.05?Math.min(1,h.s*1.3+.04):h.s,Math.min(.9,h.l*1.05+.02))};
 const gnd=new T.Mesh(new T.PlaneGeometry(9000,9000),new T.MeshLambertMaterial({color:'#5a7'}));
@@ -10903,6 +11057,7 @@ function build(){
   S.add(world);
   /* Die Welt ist statisch: Matrizen einmal berechnen, danach nicht mehr jeden Frame durch tausende Objekte laufen */
   try{world.updateMatrixWorld(true);world.matrixWorldAutoUpdate=false}catch(e){}
+  try{prewarmShaders()}catch(e){}
 }
 const car3=new T.Group();
 const PM=(c,rough=.72,metal=.04)=>new T.MeshStandardMaterial({color:c,roughness:rough,metalness:metal,flatShading:true});
