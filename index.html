@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v119 · Three.js r187</title>
+<title>Rally Stage – Lancia Delta Integrale · v120 · Three.js r187</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -3594,6 +3594,8 @@ function renderCarModel(c2, steerAngle, wheelsState=[1,1,1,1], hpVal=100, phaseF
 let visCache=null,hudCache={},noteKey={},decor=[],rallyCrowdSpots=[],rallyBannerSpots=[],rallySponsorFlags=[],rallyArchGates=[],rallyClearZones=[],lavaFields=[],waterPools=[],roadLamps=[],caveLamps=[],caveRocks=[],fenceColliders=[],fenceCollisionActive=true,nCv=null,nCtx=null,mmBg=null,caveSightCache=null,activeCaveCache=null,straights=[],pts=[],notes=[],trees=[],ramps=[],caves=[],road=null,trackLen=0,caveP=null,forestP=null,landP=null,coastP=null,iceLakeP=null,iceCrackP=null,iceFractureP=null,iceFish=[],seaSd=1,weather=0,mmB={x:0,y:0,s:1};
 // Statische Welt-Kollisionen: kreisförmige Hindernisse und räumlich indizierte Zaunsegmente.
 let solidColliders=[],solidGrid=new Map(),fenceGrid=new Map(),solidGridReady=false,cameraBlockers=[];
+/* v120: Flüsse. Segmente liegen in einem groben Raster, damit tH() sie schnell findet. */
+let riverSegs=[],riverGrid=new Map(),rivers=[];const RC=96;
 const SOLID_CELL=180,VEHICLE_COLLISION_RADIUS=18;
 // Entlang ausgewählter Streckenabschnitte bleibt ein seitlicher Korridor frei
 // für Zuschauerbereiche und einzelne Meisterschaftsbanner.
@@ -3723,7 +3725,7 @@ function genTrack(){
   let valid=false, attempts=0,selfHitGrid=new Map(),selfHitGridLen=0;
   while(!valid && attempts<160){
     attempts++;
-    pts=[];notes=[];trees=[];ramps=[];caves=[];fenceColliders=[];fenceGrid.clear();caveSightCache=null;activeCaveCache=null;caveRocks=[];lavaFields=[];waterPools=[];
+    pts=[];notes=[];trees=[];ramps=[];caves=[];fenceColliders=[];fenceGrid.clear();caveSightCache=null;activeCaveCache=null;caveRocks=[];lavaFields=[];waterPools=[];riverSegs=[];riverGrid.clear();rivers=[];
     selfHitGrid.clear();selfHitGridLen=0;
     if(useCustom&&customTrack&&customTrack.p.length>40&&!wmActive&&!resDay){pts=customTrack.p.map(q=>({x:q.x,y:q.y,h:q.h}));trackSlopes=customTrack.s.slice();notes=customNotes(pts);straights=customStraights(pts,notes);valid=true;break;}
     let x=0,y=0,h=-Math.PI/2,dev=0,lastDir=Math.random()<.5?1:-1,sameDirCount=0;
@@ -9490,7 +9492,7 @@ function tH(x,z){
     const list=GR.get((cx+a+500)*1000+cz+b+500);if(!list)continue;
     for(const i of list){testSeg(i-1);testSeg(i)}
   }
-  if(bi<0)return seaMix(x,z,hl+lf+(trackSlopes&&CBG?baseC(x,z):0));
+  if(bi<0)return riverCarve(x,z,seaMix(x,z,hl+lf+(trackSlopes&&CBG?baseC(x,z):0)));
   const h0=rh[bi]||0,h1=rh[bi+1]===undefined?h0:rh[bi+1],hh0=h0+(h1-h0)*bestT;
   const d=Math.sqrt(bd2),w=sm(HW+60,HW+260,d),f=1-sm(220,420,d);
   const ck=Math.max(cvk[bi]||0,cvk[bi+1]||0);
@@ -9513,7 +9515,7 @@ function tH(x,z){
       res+=(target-res)*mix;
     }
   }
-  return seaMix(x,z,res);
+  return riverCarve(x,z,seaMix(x,z,res));
 }
 function terrainVertexTint(wx,wz,h,cut,sea){
   const rn=Math.sin(wx*12.9898+wz*78.233)*43758.5453;
@@ -9952,7 +9954,7 @@ function scat(n,a,b,mm){
   for(let k=0;k<n*5&&out.length<n;k++){const ii=(Math.random()*(pts.length-6)|0)+3,p=pts[ii],s=Math.random()<.5?-1:1,off=a+Math.pow(Math.random(),1.5)*(b-a);if(cvk[ii]>.02&&off<HW+140)continue;
     if(Math.random()>propPatch(ii)*(.45+.55*vegStep(HW+30,HW+150,off)))continue;
     const x=p.x-Math.sin(p.h)*off*s+(Math.random()-.5)*20,y=p.y+Math.cos(p.h)*off*s+(Math.random()-.5)*20;
-    if(!M1.has(mk(x,y))&&!(seaG&&seaAt(x,y)>.08)&&!inRallyClearZone(x,y,8))out.push({x,y,r:mm[0]+Math.random()*(mm[1]-mm[0])})}
+    if(!M1.has(mk(x,y))&&!(seaG&&seaAt(x,y)>.08)&&!inRallyClearZone(x,y,8)&&!inRiver(x,y,6))out.push({x,y,r:mm[0]+Math.random()*(mm[1]-mm[0])})}
   return out;
 }
 function addProps(fo,fc,kd){
@@ -10130,6 +10132,152 @@ function addPools(){
     }
   }
   if(reed.length)PL.reeds=reed;
+}
+/* ===== v120: Flüsse und Schluchtbrücken =====
+   Ein Fluss ist eine Kette von Segmenten. tH() schneidet daraus eine Kerbe ins
+   Gelände, entlang des Pfades liegt ein Wasserband. In Gebirgsbiomen läuft ein
+   Fluss zusätzlich als Schlucht quer unter der Strecke; dort spannt sich eine
+   Brücke mit Decksplatte, Trägern, Geländern und Pfeilern. */
+const RIVER_WET={'Wald':1,'Dschungel':1,'Sumpf':1,'Savanne':1,'Herbstwald':1,'Berge':1,'Toskana':1,'Highlands':1,'Alpenpässe':1,'Hochgebirge':1,'Küste':1,'Roter Canyon':1};
+const RIVER_CANYON={'Berge':1,'Hochgebirge':1,'Alpenpässe':1,'Roter Canyon':1,'Highlands':1};
+function riverCarve(x,z,h){
+  if(!riverSegs.length)return h;
+  const gx=Math.floor(x/RC),gz=Math.floor(z/RC);
+  let k=0,bed=0;
+  for(let a=-2;a<=2;a++)for(let b=-2;b<=2;b++){
+    const arr=riverGrid.get((gx+a)+','+(gz+b));if(!arr)continue;
+    for(const s of arr){
+      const ex=s.bx-s.ax,ez=s.bz-s.az,l2=ex*ex+ez*ez||1;
+      const u=Math.max(0,Math.min(1,((x-s.ax)*ex+(z-s.az)*ez)/l2));
+      const dx=s.ax+ex*u-x,dz=s.az+ez*u-z,d=Math.sqrt(dx*dx+dz*dz);
+      if(d>s.half*2.1)continue;
+      const kk=1-sm(s.half,s.half*2.1,d);
+      if(kk>k){k=kk;bed=s.lev-s.bed;}
+    }
+  }
+  return k>0?h*(1-k)+bed*k:h;
+}
+function inRiver(x,z,m){
+  if(!riverSegs.length)return false;
+  const pad=m||0,gx=Math.floor(x/RC),gz=Math.floor(z/RC);
+  for(let a=-2;a<=2;a++)for(let b=-2;b<=2;b++){
+    const arr=riverGrid.get((gx+a)+','+(gz+b));if(!arr)continue;
+    for(const s of arr){
+      const ex=s.bx-s.ax,ez=s.bz-s.az,l2=ex*ex+ez*ez||1;
+      const u=Math.max(0,Math.min(1,((x-s.ax)*ex+(z-s.az)*ez)/l2));
+      const dx=s.ax+ex*u-x,dz=s.az+ez*u-z,r=s.half+pad;
+      if(dx*dx+dz*dz<r*r)return true;
+    }
+  }
+  return false;
+}
+function pushRiverSeg(a,b,lev,half,bed){
+  const s={ax:a.x,az:a.z,bx:b.x,bz:b.z,lev,half,bed};
+  riverSegs.push(s);
+  const pad=half*2.1,x0=Math.min(a.x,b.x)-pad,x1=Math.max(a.x,b.x)+pad,z0=Math.min(a.z,b.z)-pad,z1=Math.max(a.z,b.z)+pad;
+  for(let gx=Math.floor(x0/RC);gx<=Math.floor(x1/RC);gx++)for(let gz=Math.floor(z0/RC);gz<=Math.floor(z1/RC);gz++){
+    const key=gx+','+gz;let arr=riverGrid.get(key);if(!arr){arr=[];riverGrid.set(key,arr)}arr.push(s);
+  }
+}
+function riverWater(path,levs,half){
+  const nm=BI.n,col=BI.ice?'#bfe3ef':nm==='Sumpf'?'#46603f':nm==='Dschungel'?'#3f6f57':'#2f86a4';
+  const mat=new T.MeshPhongMaterial({color:col,specular:'#dff4ff',shininess:72,transparent:true,opacity:.9,side:T.DoubleSide});
+  const P=[],I=[];
+  for(let i=0;i<path.length;i++){
+    const p=path[i],q=path[Math.min(path.length-1,i+1)],o=path[Math.max(0,i-1)];
+    let dx=q.x-o.x,dz=q.z-o.z,l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;
+    const nx=-dz*half,nz=dx*half,y=levs[i];
+    P.push(p.x+nx,y,p.z+nz,p.x-nx,y,p.z-nz);
+    if(i>0){const a=(i-1)*2;I.push(a,a+1,a+2,a+1,a+3,a+2)}
+  }
+  if(path.length<2)return;
+  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(P,3));g.setIndex(I);g.computeVertexNormals();
+  const mesh=new T.Mesh(g,mat);mesh.frustumCulled=false;mesh.renderOrder=2;world.add(mesh);
+}
+function buildCanyonBridge(i,lev){
+  const p=pts[i],y=rh[i]||0;
+  const span=210;
+  const M=new T.MeshLambertMaterial({color:'#9a9ea1'}),M2=new T.MeshLambertMaterial({color:'#74777b'});
+  const g=new T.Group();
+  g.position.set(p.x,y,p.y);g.rotation.set(0,-p.h,0);
+  // Decksplatte unter der Fahrbahn: die Straße liegt auf, statt über der Schlucht zu schweben.
+  const deck=new T.Mesh(new T.BoxGeometry(span,7,HW*2+30),M2);deck.position.set(0,-3.6,0);g.add(deck);
+  const postGeo=new T.BoxGeometry(2.4,4.4,2.4);
+  for(const s of [-1,1]){
+    const beam=new T.Mesh(new T.BoxGeometry(span,17,8),M);beam.position.set(0,-6.5,s*(HW+11));g.add(beam);
+    const rail=new T.Mesh(new T.BoxGeometry(span,2.6,1.6),M);rail.position.set(0,3.3,s*(HW+7));g.add(rail);
+    // Pfosten bis auf die Fahrbahnhöhe, damit das Geländer nicht in der Luft hängt.
+    for(let k=-4;k<=4;k++){
+      const post=new T.Mesh(postGeo,M);post.position.set(k*span/9,1.9,s*(HW+7));g.add(post);
+    }
+  }
+  const pierH=Math.max(10,y-(lev-2)+4);
+  for(const lx of [-0.32,0.32])for(const s of [-1,1]){
+    const pier=new T.Mesh(new T.BoxGeometry(18,pierH,14),M);
+    pier.position.set(lx*span,-pierH/2-5,s*(HW-6));g.add(pier);
+  }
+  g.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=true}});
+  world.add(g);
+  // Geländer als Hindernis, damit man nicht seitlich in die Schlucht stürzt.
+  for(let k=-4;k<=4;k++){
+    const f=k*span/9;
+    for(const s of [-1,1]){
+      const lat=s*(HW+7);
+      addSolidCollider(p.x+Math.cos(p.h)*f-Math.sin(p.h)*lat,p.y+Math.sin(p.h)*f+Math.cos(p.h)*lat,11,'Brückengeländer');
+    }
+  }
+}
+function addRivers(){
+  rivers=[];riverSegs=[];riverGrid.clear();
+  if(pts.length<60)return;
+  const nm=BI.n;
+  if(RIVER_WET[nm]){
+    const side=Math.random()<.5?1:-1;
+    const i0=Math.floor(pts.length*(.10+Math.random()*.16));
+    const len=Math.floor(pts.length*(.30+Math.random()*.24));
+    const ph=Math.random()*6.283,base=HW+200+Math.random()*110;
+    const runs=[];let cur=[];
+    for(let i=i0;i<Math.min(pts.length-8,i0+len);i+=3){
+      const p=pts[i];let ok=!p.cv;
+      if(ok){
+        const off=base+60*Math.sin(i*.032+ph)+26*Math.sin(i*.009+ph*1.7);
+        const x=p.x-Math.sin(p.h)*off*side,z=p.y+Math.cos(p.h)*off*side;
+        if(inRallyClearZone(x,z,70))ok=false;else cur.push({x,z});
+      }
+      if(!ok&&cur.length>6){runs.push(cur);cur=[];}
+    }
+    if(cur.length>6)runs.push(cur);
+    for(const path of runs){
+      const half=30+Math.random()*12,levs=[];
+      for(let i=0;i<path.length;i++){
+        const raw=tH(path[i].x,path[i].z)-3.4;
+        levs.push(i?Math.min(raw,levs[i-1]-0.06):raw);
+      }
+      for(let s=0;s<2;s++)for(let i=1;i<levs.length-1;i++)levs[i]=(levs[i-1]+levs[i]*2+levs[i+1])/4;
+      for(let i=1;i<path.length;i++)pushRiverSeg(path[i-1],path[i],(levs[i-1]+levs[i])*.5,half,2.8);
+      riverWater(path,levs,half);
+      rivers.push({path,levs,half});
+    }
+  }
+  if(RIVER_CANYON[nm]){
+    const cand=(typeof straights!=='undefined'&&straights?straights:[]).filter(st=>st&&st.e-st.s>18);
+    const st=cand.length?cand[Math.floor(Math.random()*cand.length)]:null;
+    const ci=st?Math.floor((st.s+st.e)/2):Math.floor(pts.length*.5);
+    const i=Math.max(4,Math.min(pts.length-6,ci)),p=pts[i];
+    if(p&&!p.cv){
+      const half=26+Math.random()*6,roadY=rh[i]||0,lev=roadY-30;
+      const path=[];
+      for(let t=-330;t<=330;t+=22){
+        const w=Math.sin(t*.0045+1.1)*22;
+        path.push({x:p.x-Math.sin(p.h)*t+Math.cos(p.h)*w,z:p.y+Math.cos(p.h)*t+Math.sin(p.h)*w});
+      }
+      const levs=path.map(()=>lev);
+      for(let k=1;k<path.length;k++)pushRiverSeg(path[k-1],path[k],lev,half,4.5);
+      riverWater(path,levs,half);
+      rivers.push({path,levs,half});
+      buildCanyonBridge(i,lev);
+    }
+  }
 }
 function addBarriers(){
   const A=[],B=[];
@@ -11037,7 +11185,7 @@ function build(){
   {CPH=Math.random()*6.28;FI=Math.max(4,pts.length-12);const p1=Math.random()*6.28,p2=Math.random()*6.28;tgSetup();rh=pts.map((p,i)=>(TGA[0]*Math.sin(i*TGA[2]+p1)+TGA[1]*Math.sin(i*TGA[2]*2.9+p2))*sm(0,25,i)+TGX*(p.x-TGO.x)+TGZ*(p.y-TGO.y));
    if(trackSlopes&&trackSlopes.length===pts.length)rh=customHeights();else CBG=null;
    cvk=new Float32Array(pts.length);for(const c of (typeof caves!=='undefined'?caves:[]))for(let i=Math.max(0,c.s-14);i<=Math.min(pts.length-1,c.e+14);i++)cvk[i]=Math.max(cvk[i],sm(c.s-12,c.s+2,i)*(1-sm(c.e-2,c.e+12,i)));
-   GR=new Map();pts.forEach((p,i)=>{const k=(Math.floor(p.x/CS)+500)*1000+Math.floor(p.y/CS)+500;(GR.get(k)||GR.set(k,[]).get(k)).push(i)});tcx=1e9;buildMasks();try{initSea();buildPools()}catch(e){console.warn('Biom-Setup',e);seaG=null;PL=[]}}
+   GR=new Map();pts.forEach((p,i)=>{const k=(Math.floor(p.x/CS)+500)*1000+Math.floor(p.y/CS)+500;(GR.get(k)||GR.set(k,[]).get(k)).push(i)});tcx=1e9;buildMasks();try{addRivers()}catch(e){console.warn('Flüsse',e);riverSegs=[];riverGrid.clear()}try{initSea();buildPools()}catch(e){console.warn('Biom-Setup',e);seaG=null;PL=[]}}
   const desert=BI.n==='Wüste'||BI.n==='Küste'; // Wüste und Küste verwenden dieselbe Sand-Boden- und Fahrbahntextur.
    const kd=BI.ice?'ice':BI.n==='Schnee'?'snow':(['Küste','Wüste','Vulkan','Savanne','Roter Canyon'].includes(BI.n)?'sand':'grass');
   gnd.material.map=tex(BI.ice?'#dcecf2':BI.n==='Schnee'?'#eef3f6':(desert?'#d4bd94':BI.g),kd);gnd.material.map.repeat.set(4000/TL,4000/TL);gnd.material.color.set('#fff');gnd.material.needsUpdate=true;
