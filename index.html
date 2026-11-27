@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v127 · Three.js r187</title>
+<title>Rally Stage – Lancia Delta Integrale · v128 · Three.js r187</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -10338,6 +10338,32 @@ function nearCaveIdx(i,m){
   for(const c of (typeof caves!=='undefined'?caves:[]))if(i>=c.s-pad&&i<=c.e+pad)return true;
   return false;
 }
+/* v128: Plan-Abstand zur Tunnelachse. Der Flusslauf wird als Ganzes verworfen,
+   sobald sein Wasser-/Kerbband die Röhre oder den Portal-Kragen berühren würde.
+   Das fängt auch Querläufe ab, die auf Serpentinen eine andere Röhre treffen. */
+function caveClear(x,z,pad){
+  for(const c of (typeof caves!=='undefined'?caves:[])){
+    for(let i=c.s;i<=c.e;i++){
+      const p=pts[i];if(!p)continue;
+      const dx=p.x-x,dz=p.y-z;
+      if(dx*dx+dz*dz<pad*pad)return false;
+    }
+  }
+  return true;
+}
+function riverClearsCaves(path,half){
+  const pad=half*2.1+HW+96; // Kerbband + Röhrenradius/Felshülle + Reserve
+  for(let i=0;i<path.length;i++){
+    const a=path[i],b=path[Math.min(path.length-1,i+1)];
+    const n=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/18));
+    for(let k=0;k<=n;k++){
+      const t=k/n;
+      if(!caveClear(a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t,pad))return false;
+    }
+    if(i===path.length-1)break;
+  }
+  return true;
+}
 function addRivers(){
   rivers=[];riverSegs=[];riverGrid.clear();
   if(pts.length<60)return;
@@ -10349,18 +10375,23 @@ function addRivers(){
     const ph=Math.random()*6.283,base=HW+200+Math.random()*110;
     const runs=[];let cur=[];
     for(let i=i0;i<Math.min(pts.length-8,i0+len);i+=3){
-      const p=pts[i];let ok=!p.cv&&!nearCaveIdx(i,24);
+      const p=pts[i];let ok=!p.cv&&!nearCaveIdx(i,30);
       if(ok){
         const off=base+60*Math.sin(i*.032+ph)+26*Math.sin(i*.009+ph*1.7);
         const x=p.x-Math.sin(p.h)*off*side,z=p.y+Math.cos(p.h)*off*side;
         /* Kerbe (2,1 × halbe Breite) plus Bankett muss neben der Fahrbahn bleiben. */
         if(inRallyClearZone(x,z,70)||roadGap(x,z)<HW+110)ok=false;else cur.push({x,z});
       }
-      if(!ok&&cur.length>6){runs.push(cur);cur=[];}
+      /* v128: Jede Ablehnung beendet den Lauf. Vorher blieb ein kurzer Rest
+         stehen, und der nächste Abschnitt verband die Tunnelzone geradlinig –
+         genau dadurch lief der Fluss manchmal mitten durch die Röhre. */
+      if(!ok){if(cur.length>6)runs.push(cur);cur=[];}
     }
     if(cur.length>6)runs.push(cur);
     for(const path of runs){
-      const half=30+Math.random()*12,levs=[];
+      const half=30+Math.random()*12;
+      if(!riverClearsCaves(path,half))continue;
+      const levs=[];
       for(let i=0;i<path.length;i++){
         const raw=tH(path[i].x,path[i].z)-3.4;
         levs.push(i?Math.min(raw,levs[i-1]-0.06):raw);
@@ -10376,18 +10407,22 @@ function addRivers(){
     const st=cand.length?cand[Math.floor(Math.random()*cand.length)]:null;
     const ci=st?Math.floor((st.s+st.e)/2):Math.floor(pts.length*.5);
     const i=Math.max(4,Math.min(pts.length-6,ci)),p=pts[i];
-    if(p&&!p.cv&&!nearCaveIdx(i,28)){
+    if(p&&!p.cv&&!nearCaveIdx(i,34)){
       const half=26+Math.random()*6,roadY=rh[i]||0,lev=roadY-30;
       const path=[];
       for(let t=-330;t<=330;t+=22){
         const w=Math.sin(t*.0045+1.1)*22;
         path.push({x:p.x-Math.sin(p.h)*t+Math.cos(p.h)*w,z:p.y+Math.cos(p.h)*t+Math.sin(p.h)*w});
       }
-      const levs=path.map(()=>lev);
-      for(let k=1;k<path.length;k++)pushRiverSeg(path[k-1],path[k],lev,half,4.5);
-      riverWater(path,levs,half);
-      rivers.push({path,levs,half});
-      buildCanyonBridge(i,lev);
+      /* v128: Der Querlauf ist 660 Einheiten breit; auf Serpentinen kann er
+         eine benachbarte Tunnelröhre schneiden. Dann Fluss und Brücke weglassen. */
+      if(riverClearsCaves(path,half)){
+        const levs=path.map(()=>lev);
+        for(let k=1;k<path.length;k++)pushRiverSeg(path[k-1],path[k],lev,half,4.5);
+        riverWater(path,levs,half);
+        rivers.push({path,levs,half});
+        buildCanyonBridge(i,lev);
+      }
     }
   }
 }
