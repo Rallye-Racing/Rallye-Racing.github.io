@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v121 · Three.js r187</title>
+<title>Rally Stage – Lancia Delta Integrale · v122 · Three.js r187</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -6174,6 +6174,56 @@ function sndEvent(name,v){
         break}
       case 'pit':for(let k=0;k<5;k++){sndNoise(.07,'bandpass',3100,2700,.07,2,.1+k*.11);sndTone('square',180,160,.05,.03,.1+k*.11)}break;
       case 'finish':[523.25,659.25,783.99,1046.5].forEach((f,i)=>{sndTone('triangle',f,f,.34,.13,i*.13);sndTone('sine',f*2,f*2,.22,.04,i*.13)});break;
+    }
+  }catch(e){}
+}
+/* v122: Tierstimmen. Kurze synthetische Rufe, mit Entfernung gedämpft und über
+   einen Stereo-Panner dort platziert, wo das Tier relativ zum Auto steht. */
+function sndAnimal(kind,dist,pan,range){
+  if(!au||!ambientVolume)return;
+  if(typeof state!=='undefined'&&state==='menu')return;
+  const R=range||190,att=Math.max(0,1-dist/R),amp=att*att*ambientVolume;
+  if(amp<.006)return;
+  const A=au.A,t0=A.currentTime;
+  try{
+    let out;
+    if(A.createStereoPanner){out=A.createStereoPanner();out.pan.value=Math.max(-.9,Math.min(.9,pan||0))}
+    else out=A.createGain();
+    out.connect(au.m);
+    const tone=(type,f0,f1,dur,v,dl)=>{
+      const o=A.createOscillator();o.type=type;
+      o.frequency.setValueAtTime(Math.max(30,f0),t0+dl);
+      o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),t0+dl+dur);
+      const g=A.createGain();
+      g.gain.setValueAtTime(.0001,t0+dl);
+      g.gain.exponentialRampToValueAtTime(Math.max(.0003,v*amp),t0+dl+.02);
+      g.gain.exponentialRampToValueAtTime(.0001,t0+dl+dur);
+      o.connect(g);g.connect(out);o.start(t0+dl);o.stop(t0+dl+dur+.04);
+    };
+    if(kind==='bird'){
+      const n=2+(Math.random()*3|0),base=2500+Math.random()*800;
+      for(let i=0;i<n;i++)tone('sine',base,base*1.45+Math.random()*500,.055,.042,i*(.07+Math.random()*.03));
+    }else if(kind==='sheep'){
+      // Meckern: Sägezahn mit schnellem Vibrato, leicht bandbegrenzt.
+      const o=A.createOscillator();o.type='sawtooth';
+      o.frequency.setValueAtTime(520,t0);o.frequency.exponentialRampToValueAtTime(410,t0+.5);
+      const lfo=A.createOscillator();lfo.type='sine';lfo.frequency.value=22;
+      const lg=A.createGain();lg.gain.value=34;lfo.connect(lg);lg.connect(o.frequency);
+      const bp=A.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1350;bp.Q.value=1.3;
+      const g=A.createGain();
+      g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(Math.max(.0003,.055*amp),t0+.06);
+      g.gain.exponentialRampToValueAtTime(.0001,t0+.55);
+      o.connect(bp);bp.connect(g);g.connect(out);
+      o.start(t0);o.stop(t0+.62);lfo.start(t0);lfo.stop(t0+.62);
+    }else{
+      // Reh/Wild: kurzer, kehliger Ruf mit Rauschanteil.
+      tone('sawtooth',215,120,.17,.05,0);
+      const s=A.createBufferSource();s.buffer=au.nb;s.loop=true;
+      const f=A.createBiquadFilter();f.type='bandpass';f.frequency.value=820;f.Q.value=1.2;
+      const g=A.createGain();
+      g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(Math.max(.0003,.045*amp),t0+.02);
+      g.gain.exponentialRampToValueAtTime(.0001,t0+.17);
+      s.connect(f);f.connect(g);g.connect(out);s.start(t0,Math.random());s.stop(t0+.2);
     }
   }catch(e){}
 }
@@ -12992,8 +13042,15 @@ bGeo.setAttribute('position',new T.Float32BufferAttribute([0,0,3,-12,4,-1,0,0,-4
 for(let i=0;i<9;i++){const m=new T.Mesh(bGeo,bMat);m.frustumCulled=false;m.visible=false;S.add(m);birds.push(m)}
 function updateBirds(y,ic){
   const w=Number(weather)||0,on=BIRDB.includes(BI.n)&&tod!==2&&w===0&&ic<.5,t=performance.now()*.001;
+  const dt=Math.min(.05,frameDt);
   birds.forEach((m,i)=>{m.visible=on;if(!on)return;const a=t*.18+i*.7+(i%3)*.4,r=260+(i%4)*70;
-    m.position.set(car.x+Math.cos(a)*r,y+230+(i%3)*45+Math.sin(t*.5+i)*12,car.y+Math.sin(a)*r);m.rotation.y=-a;m.scale.set(2.2,2.2*Math.sin(t*6+i),2.2)});
+    m.position.set(car.x+Math.cos(a)*r,y+230+(i%3)*45+Math.sin(t*.5+i)*12,car.y+Math.sin(a)*r);m.rotation.y=-a;m.scale.set(2.2,2.2*Math.sin(t*6+i),2.2);
+    /* v122: Vogelrufe, nur wenn der Schwarm in Hörweite kreist. */
+    m.userData.c=(m.userData.c===undefined?2+Math.random()*8:m.userData.c)-dt;
+    if(m.userData.c<=0){m.userData.c=7+Math.random()*13;
+      const dx=m.position.x-car.x,dz=m.position.z-car.y,d=Math.hypot(dx,dz);
+      if(d<640)sndAnimal('bird',d,(dx*-Math.sin(car.a)+dz*Math.cos(car.a))/Math.max(30,d),700);
+    }});
 }
 const auU={t:{value:0}},auM=new T.ShaderMaterial({uniforms:auU,transparent:true,blending:T.AdditiveBlending,depthWrite:false,fog:false,side:T.DoubleSide,
   vertexShader:'varying vec2 u;void main(){u=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
@@ -13016,10 +13073,19 @@ function place(g,i,lat,off){const p=pts[i],fx=Math.cos(p.h),fz=Math.sin(p.h);g.p
 function house(){const g=new T.Group();pm(bxG,PRM(['#e8dcc4','#d8b89a','#cfd6d8','#e0c9a0'][Math.random()*4|0]),26,26,22,0,5,0,g);pm(roofG,PRM('#a5482e'),21,13,21,0,24,0,g).rotation.y=Math.PI/4;g.rotation.y=Math.random()*6.28;return g}
 function camp(){const g=new T.Group();pm(cylG,PRM('#4a3a2e'),5,2,5,0,1,0,g);fires.push(pm(coneG,new T.MeshBasicMaterial({color:'#ff9a3a',transparent:true,opacity:.85,blending:T.AdditiveBlending,depthWrite:false}),3.2,10,3.2,0,6,0,g));return g}
 function tent(){const g=new T.Group();pm(coneG,PRM(['#d9553a','#e8b23a','#3a7ad9'][Math.random()*3|0]),15,16,15,0,6,0,g);return g}
-function animal(col){const g=new T.Group(),h=new T.Group();pm(bxG,PRM(col),15,7,6,0,9,0,g);
-  for(const q of[[-5,-2],[-5,2],[5,-2],[5,2]])pm(bxG,PRM('#4a3a2e'),1.6,8,1.6,q[0],4,q[1],g);
-  h.position.set(8,11,0);pm(bxG,PRM(col),3,8,3,2,3,0,h).rotation.z=-.5;pm(bxG,PRM(col),6,3.5,3.4,5,7,0,h);g.add(h);
-  g.userData.h=h;g.userData.s=Math.random()*9;animals.push(g);g.rotation.y=Math.random()*6.28;g.scale.setScalar(1.3);return g}
+/* v122: Die Weidetiere sind jetzt beweglich: vier einzeln aufgehängte Beine für den
+   Laufzyklus, ein Kopf-/Halsgelenk für Fressen und Flucht, plus Zustand (grasen,
+   wandern, fliehen) und Ruf-Timer. */
+function animal(col,kind){
+  const g=new T.Group(),h=new T.Group(),legs=[];
+  pm(bxG,PRM(col),15,7,6,0,11,0,g);
+  for(const q of[[-5,-2],[-5,2],[5,-2],[5,2]]){
+    const lg=new T.Group();lg.position.set(q[0],9,q[1]);
+    pm(bxG,PRM('#4a3a2e'),1.6,9,1.6,0,-4.5,0,lg);g.add(lg);legs.push(lg);
+  }
+  h.position.set(8,15,0);pm(bxG,PRM(col),3,9,3,2,4,0,h).rotation.z=-.5;pm(bxG,PRM(col),6,3.5,3.4,5,9,0,h);g.add(h);
+  g.userData={h,legs,kind:kind||'deer',s:Math.random()*9,mode:'graze',t:1+Math.random()*4,ph:0,hd:Math.random()*6.283,sp:0,call:2+Math.random()*7,x0:0,z0:0,tx:0,tz:0};
+  animals.push(g);g.rotation.y=-g.userData.hd;g.scale.setScalar(1.3);return g}
 /* ===== Fluesse+Bruecken, Wasserfaelle, Tunnelvarianten ===== */
 const flowT=[],rvC={},mist=[],dripPts=[],dripG=new T.BufferGeometry();
 const dripM=new T.Points(dripG,new T.PointsMaterial({color:'#bfe3ff',size:2.6,transparent:true,opacity:.8,depthWrite:false}));dripM.frustumCulled=false;S.add(dripM);
@@ -13093,8 +13159,15 @@ function buildProps(){
   propG.clear();fires.length=0;animals.length=0;lhBeam=null;mist.length=0;dripPts.length=0;const used=[],n=BI.n,sd=()=>Math.random()<.5?-1:1;
   if(n!=='Vulkan')for(let v=0;v<2;v++){const i=pick(used);if(i<0)break;const s=sd();for(let k=0;k<4;k++)place(house(),i+k*3-3,s*(HW+120+(k%2)*45),0)}
   for(let c=0;c<3;c++){const i=pick(used);if(i<0)break;const s=sd();place(camp(),i,s*(HW+62),0);place(tent(),i,s*(HW+88),10)}
-  const AC={Wald:'#9a6b3f',Herbstwald:'#a0703f',Savanne:'#c9a24a',Berge:'#8a7a68',Sumpf:'#7a6a4a',Schnee:'#d8d4c8'};
-  if(AC[n])for(let a=0;a<3;a++){const i=pick(used);if(i<0)break;const s=sd();for(let k=0;k<4;k++)place(animal(AC[n]),i,s*(HW+55+Math.random()*70),Math.random()*70-35)}
+  const AC={Wald:'#9a6b3f',Herbstwald:'#a0703f',Savanne:'#c9a24a',Berge:'#8a7a68',Sumpf:'#7a6a4a',Schnee:'#d8d4c8',Toskana:'#cfc3aa','Küste':'#bfa887',Highlands:'#ded9cc','Alpenpässe':'#d2cec2',Dschungel:'#7d5c3c'};
+  const sheepB=['Toskana','Küste','Alpenpässe'];
+  if(AC[n])for(let a=0;a<3;a++){const i=pick(used);if(i<0)break;const s=sd();for(let k=0;k<4;k++){
+    const g=animal(AC[n],sheepB.includes(n)?'sheep':'deer'),lat=s*(HW+55+Math.random()*70),off=Math.random()*70-35,p=pts[i],fx=Math.cos(p.h),fz=Math.sin(p.h);
+    g.position.set(p.x-fz*lat+fx*off,rh[i]||0,p.y+fx*lat+fz*off);
+    // Nicht ins Wasser oder in einen Fluss setzen.
+    if(inPool(g.position.x,g.position.z)||inRiver(g.position.x,g.position.z,14)){propG.remove(g);animals.pop();continue}
+    propG.add(g);
+  }}
   if(n==='Küste'){const i=pick(used);if(i>=0){const g=new T.Group(),pv=new T.Group(),bg=new T.CylinderGeometry(22,.5,420,12,1,true);bg.rotateZ(-Math.PI/2);bg.translate(210,0,0);
     pm(cylG,PRM('#f2f2ee'),8,110,8,0,47,0,g);pm(cylG,PRM('#c43a2e'),8.6,22,8.6,0,45,0,g);pm(cylG,new T.MeshBasicMaterial({color:'#ffe9a8'}),6,9,6,0,106,0,g);pm(coneG,PRM('#8a2e2a'),9,9,9,0,115,0,g);
     const b1=new T.Mesh(bg,beamMat),b2=new T.Mesh(bg,beamMat);b2.rotation.y=Math.PI;pv.add(b1,b2);pv.position.set(0,106,0);g.add(pv);lhBeam=pv;place(g,i,sd()*(HW+240),0)}}
@@ -13104,8 +13177,57 @@ function buildProps(){
 }
 function updateProps(){
   const t=performance.now()*.001;updateFlow(t,Math.min(.05,frameDt));updateWet(Math.min(.05,frameDt));updateSplash(Math.min(.05,frameDt));fires.forEach((f,k)=>f.scale.set(3.2*(.85+.25*Math.sin(t*17+k)),10*(.85+.3*Math.sin(t*13+k*2)),3.2*(.85+.25*Math.cos(t*15+k))));
-  animals.forEach(a=>{a.userData.h.rotation.z=-.15+.55*Math.sin(t*.6+a.userData.s)});
+  updateAnimals(Math.min(.05,frameDt));
   if(lhBeam){lhBeam.rotation.y=t*.9;beamMat.opacity=tod===2?.28:tod===1?.14:0}
+}
+/* v122: Bewegung der Weidetiere. Sie grasen, wandern im Umkreis ihres Platzes und
+   fliehen, wenn das Auto schnell näher kommt – dabei laufen die Beine und der Kopf
+   geht hoch. Rufe werden nach Entfernung und Seitenlage gepannt. */
+function updateAnimals(dt){
+  const t=performance.now()*.001,spd=Math.hypot(car.vx||0,car.vy||0);
+  for(const a of animals){
+    const u=a.userData;
+    if(!u.x0){u.x0=a.position.x;u.z0=a.position.z;u.tx=u.x0;u.tz=u.z0}
+    const dx=a.position.x-car.x,dz=a.position.z-car.y,d=Math.hypot(dx,dz);
+    a.visible=d<820;
+    if(!a.visible){a.position.y=tH(a.position.x,a.position.z);continue}
+    if(d<130&&spd>7&&u.mode!=='flee'){u.mode='flee';u.t=1.8+Math.random()*1.5;u.hd=Math.atan2(dz,dx)}
+    if(u.mode==='flee'){
+      u.t-=dt;u.sp=17;
+      if(d<210)u.hd=Math.atan2(dz,dx);
+      if(u.t<=0){u.mode='graze';u.t=2+Math.random()*4;u.sp=0}
+    }else if(u.mode==='walk'){
+      u.t-=dt;u.sp=5.5;
+      if(u.t<=0||Math.hypot(u.tx-a.position.x,u.tz-a.position.z)<6){u.mode='graze';u.t=2+Math.random()*6;u.sp=0}
+    }else{
+      u.t-=dt;u.sp=0;
+      if(u.t<=0){
+        const ang=Math.random()*6.283,rr=18+Math.random()*50;
+        u.tx=u.x0+Math.cos(ang)*rr;u.tz=u.z0+Math.sin(ang)*rr;
+        u.hd=Math.atan2(u.tz-a.position.z,u.tx-a.position.x);
+        u.mode=Math.random()<.65?'walk':'graze';u.t=2.5+Math.random()*4;
+      }
+    }
+    if(u.sp>0){
+      a.position.x+=Math.cos(u.hd)*u.sp*dt;a.position.z+=Math.sin(u.hd)*u.sp*dt;
+      if(Math.hypot(a.position.x-u.x0,a.position.z-u.z0)>90)u.hd=Math.atan2(u.z0-a.position.z,u.x0-a.position.x);
+      u.ph+=dt*u.sp*.6;
+    }
+    a.rotation.y=-u.hd;
+    const sw=Math.sin(u.ph*2)*Math.min(1,u.sp/12);
+    u.legs[0].rotation.z=sw*.55;u.legs[1].rotation.z=-sw*.55;u.legs[2].rotation.z=-sw*.55;u.legs[3].rotation.z=sw*.55;
+    u.h.rotation.z=u.mode==='graze'?-.62+.07*Math.sin(t*1.6+u.s):u.mode==='flee'?.05:-.12+.05*Math.sin(t*1.1+u.s);
+    const gy=tH(a.position.x,a.position.z);
+    a.position.y+=(gy-a.position.y)*Math.min(1,dt*9);
+    u.call-=dt;
+    if(u.call<=0){
+      u.call=3+Math.random()*8;
+      if(d<190){
+        const rx=-Math.sin(car.a),rz=Math.cos(car.a);
+        sndAnimal(u.kind,d,(dx*rx+dz*rz)/Math.max(25,d),190);
+      }
+    }
+  }
 }
 function updateShadowBlob(){
   if(!sh.userData.w){sh.userData.w=1;car3.remove(sh);sh.rotation.order='YXZ';const m=sh.material;m.polygonOffset=true;m.polygonOffsetFactor=-4;m.polygonOffsetUnits=-4;sh.renderOrder=2;S.add(sh)}
