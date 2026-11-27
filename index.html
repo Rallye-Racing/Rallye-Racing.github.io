@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v126 · Three.js r187</title>
+<title>Rally Stage – Lancia Delta Integrale · v127 · Three.js r187</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -766,7 +766,7 @@ try{
   if(aa==='1')gfxAntialias=true;else if(aa==='0')gfxAntialias=false;
   gfxAdvancedLighting=localStorage.getItem('rallyGfxAdvancedLighting')==='1';
   gfxShadowRes=[0,512,1024,2048,4096].includes(sr)?sr:2048;
-  gfxShadowDist=Math.max(80,Math.min(900,Number(localStorage.getItem('rallyGfxShadowDist')??220)||220));
+  gfxShadowDist=Math.max(100,Math.min(2000,Number(localStorage.getItem('rallyGfxShadowDist')??220)||220));
   gfxGrassDist=Number(localStorage.getItem('rallyGfxGrassDist')??960);
   gfxGrassDist=isFinite(gfxGrassDist)?Math.max(0,Math.min(2000,gfxGrassDist)):960;
   gfxGrassDensity=Number(localStorage.getItem('rallyGfxGrassDensity')??100);
@@ -907,7 +907,7 @@ window.setGfxFromUI=function(kind,value){
   if(kind==='antialias'){gfxAntialias=!!v;persistOptionsSettings();if(typeof window.updateGfxAAUI==='function')window.updateGfxAAUI();return;}
   if(kind==='advancedLighting'){gfxAdvancedLighting=!!v;persistOptionsSettings();if(typeof window.applyGfxSettings==='function')window.applyGfxSettings('advancedLighting');const info=document.getElementById('gfxAdvancedInfo');if(info)info.textContent=gfxAdvancedLighting?(LANG==='en'?'Advanced lighting is on: smoother light transitions, ambient bounce and cinematic highlight response. This is not hardware ray tracing.':'Erweiterte Beleuchtung ist aktiv: weichere Lichtübergänge, Umgebungsaufhellung und filmische Lichtreaktion. Kein echtes Hardware-Raytracing.'):(LANG==='en'?'Advanced lighting is off. The standard lighting profile is active.':'Erweiterte Beleuchtung ist aus. Die Standardbeleuchtung ist aktiv.');return;}
   if(kind==='shadowRes')gfxShadowRes=[0,512,1024,2048,4096][Math.max(0,Math.min(4,Math.round(v)))];
-  else if(kind==='shadowDist')gfxShadowDist=Math.max(100,Math.min(1200,v));
+  else if(kind==='shadowDist')gfxShadowDist=Math.max(100,Math.min(2000,v));
   else if(kind==='grassDist')gfxGrassDist=Math.max(0,Math.min(2000,v));
   else if(kind==='grassDensity')gfxGrassDensity=Math.max(25,Math.min(200,Number(v)||100));
   else if(kind==='cam')camDistScale=Math.max(.6,Math.min(1.8,v/100));
@@ -4753,7 +4753,7 @@ window.openGfxSettings=function(){
     '<div class="gx-r">'+ch(aaOn,'antialias','Anti-Aliasing')+ch(gfxAdvancedLighting,'advancedLighting',L('Advanced lighting','Erweiterte Beleuchtung'))+'</div>'+
     '<p id="gfxAAInfo" class="gx-n">'+(aaPend?L('Reload required for anti-aliasing.','Für Anti-Aliasing ist ein Neustart nötig.'):'')+'</p>'+
     '<button id="gfxAAReload" class="btn sec" style="display:'+(aaPend?'block':'none')+'" onclick="reloadForGfxAA()">↻ '+L('Reload and apply','Neu laden und übernehmen')+'</button>'+
-    sl('gxSd','sd','shadowDist',80,900,20,Math.round(gfxShadowDist),String(Math.round(gfxShadowDist)),L('Shadow distance','Schattendistanz'))+
+    sl('gxSd','sd','shadowDist',100,2000,50,Math.round(gfxShadowDist),String(Math.round(gfxShadowDist)),L('Shadow distance','Schattendistanz'))+
     sl('gxGd','gd','grassDist',0,2000,50,Math.round(gfxGrassDist),gfxGrassLabel(gfxGrassDist),L('Grass distance','Gras-Distanz'))+
     sl('gxVd','vd','view',50,125,5,Math.round(gfxViewDist*100),Math.round(gfxViewDist*100)+' %',L('View distance (fog)','Sichtweite (Nebel)'))+
     sl('gxPd','pd','props',25,150,25,Math.round(gfxPropDensity*100),Math.round(gfxPropDensity*100)+' %',L('Rocks & flowers (next race)','Felsen & Blumen (ab nächstem Rennen)'))+
@@ -7440,9 +7440,13 @@ brake=Math.max((keys.ArrowDown||keys.KeyS)?1:0,padInput.brake);
 
   if(car.z <= 0){
     for(const r of ramps){
-      if(!r.used && Math.abs(idx - r.idx) <= 9 && dist < HW * 0.85 && vf > 110){
+      if(!r.used && Math.abs(idx - r.idx) <= 9 && dist < HW * 0.55 && vf > 110){
         const alR=(car.x-r.x)*Math.cos(r.h)+(car.y-r.y)*Math.sin(r.h);
-        if(alR<38||alR>120)continue;
+        /* v127: Nur springen, wenn das Auto wirklich über die Rampe lief. Die
+           seitliche Prüfung war zu weit (fast die halbe Fahrbahn) – wer neben der
+           Rampe vorbeifuhr, wurde trotzdem abgehoben. */
+        const laR=-(car.x-r.x)*Math.sin(r.h)+(car.y-r.y)*Math.cos(r.h);
+        if(alR<34||alR>95||Math.abs(laR)>HW*0.55)continue;
         r.used = true;
         car.z = 1.5;
         car.vz = Math.min(240, Math.max(125, vf * 0.52));
@@ -9213,7 +9217,7 @@ function applyShadowCfg(){
      Texel bei 2048²) – deshalb wirkte erst 4096 scharf. Ein enger, am Auto
      hängender Kasten (lighting() rundet den Versatz texelgenau) ist bei gleicher
      Map-Auflösung 2–4× schärfer und wirft weniger Caster in den Schattenpass. */
-  const res=gfxShadowRes,D=Math.max(80,Math.min(900,Number(gfxShadowDist)||220));
+  const res=gfxShadowRes,D=Math.max(100,Math.min(2000,Number(gfxShadowDist)||220));
   if(!(res>0)){sun.castShadow=false;shadowTick=0;R.shadowMap.needsUpdate=true;return}
   const c=sun.shadow.camera;
   sun.castShadow=true;
@@ -13087,19 +13091,70 @@ function place(g,i,lat,off){const p=pts[i],fx=Math.cos(p.h),fz=Math.sin(p.h);g.p
 function house(){const g=new T.Group();pm(bxG,PRM(['#e8dcc4','#d8b89a','#cfd6d8','#e0c9a0'][Math.random()*4|0]),26,26,22,0,5,0,g);pm(roofG,PRM('#a5482e'),21,13,21,0,24,0,g).rotation.y=Math.PI/4;g.rotation.y=Math.random()*6.28;return g}
 function camp(){const g=new T.Group();pm(cylG,PRM('#4a3a2e'),5,2,5,0,1,0,g);fires.push(pm(coneG,new T.MeshBasicMaterial({color:'#ff9a3a',transparent:true,opacity:.85,blending:T.AdditiveBlending,depthWrite:false}),3.2,10,3.2,0,6,0,g));return g}
 function tent(){const g=new T.Group();pm(coneG,PRM(['#d9553a','#e8b23a','#3a7ad9'][Math.random()*3|0]),15,16,15,0,6,0,g);return g}
-/* v122: Die Weidetiere sind jetzt beweglich: vier einzeln aufgehängte Beine für den
-   Laufzyklus, ein Kopf-/Halsgelenk für Fressen und Flucht, plus Zustand (grasen,
-   wandern, fliehen) und Ruf-Timer. */
+/* v127: Die Weidetiere sind neu modelliert. Statt fünf Kisten gibt es jetzt einen
+   gegliederten Körper (Brust, Rumpf, Bauch, Hals, Schwanz), vier Beine mit Ober-
+   und Unterschenkel plus Huf und einen Kopf mit Maul, Ohren und – beim Reh –
+   Geweih. Die Teile eines Glieds werden zu je einer Geometrie mit Vertexfarben
+   verschmolzen: die Animation bleibt, und trotzdem braucht ein Tier nur sechs
+   Zeichenaufrufe (Körper, vier Beine, Kopf). */
+const animalMat=VM(0);
 function animal(col,kind){
+  const sheep=kind==='sheep';
+  const base=new T.Color(col||'#8a5a32'),belly=base.clone().offsetHSL(0,-.04,.13),
+        legC=sheep?new T.Color('#4a453d'):base.clone().offsetHSL(0,.02,-.18),
+        faceC=sheep?new T.Color('#3a3733'):base.clone().offsetHSL(0,-.02,.05),
+        hornC=new T.Color('#cbbd97'),hoofC=new T.Color('#2b2723');
   const g=new T.Group(),h=new T.Group(),legs=[];
-  pm(bxG,PRM(col),15,7,6,0,11,0,g);
-  for(const q of[[-5,-2],[-5,2],[5,-2],[5,2]]){
-    const lg=new T.Group();lg.position.set(q[0],9,q[1]);
-    pm(bxG,PRM('#4a3a2e'),1.6,9,1.6,0,-4.5,0,lg);g.add(lg);legs.push(lg);
+  const body=[],headP=[],legP=[];
+  const B=(arr,sx,sy,sz,x,y,z,c,dk,rz)=>{const q=new T.BoxGeometry(sx,sy,sz);if(rz)q.rotateZ(rz);q.translate(x,y,z);arr.push([q,0,c,sy,dk])};
+  const S=(arr,sx,sy,sz,x,y,z,c,dk)=>{const q=new T.IcosahedronGeometry(1,1);q.scale(sx,sy,sz);q.translate(x,y,z);arr.push([q,0,c,sy*1.7,dk])};
+  let legTop,hipX,hipZ,headX,headY;
+  if(sheep){
+    const wool=base.clone().offsetHSL(0,-.14,.1),wool2=wool.clone().offsetHSL(.012,-.03,-.06);
+    S(body,7.0,5.8,6.0,0,11.6,0,wool,1);
+    S(body,4.8,4.4,5.0,4.0,11.9,0,wool2,1);
+    S(body,4.4,4.0,4.6,-4.0,11.4,0,wool2,1);
+    S(body,3.0,2.8,2.8,0.4,14.8,2.2,wool,1);
+    S(body,2.8,2.6,2.6,-1.0,14.6,-2.2,wool,1);
+    S(body,2.0,1.8,2.0,-6.4,12.6,0,wool2,1);
+    B(body,4.2,3.2,4.0,6.0,11.2,0,faceC,.85);
+    legTop=7.2;hipX=3.4;hipZ=2.0;headX=7.0;headY=13.6;
+    B(headP,4.2,3.2,3.2,1.2,0,0,faceC,1);
+    B(headP,2.6,1.9,2.2,3.4,-.7,0,new T.Color('#2a2824'),.8);
+    B(headP,1.1,1.5,2.4,-.3,1.7,1.9,faceC,1,.3);
+    B(headP,1.1,1.5,2.4,-.3,1.7,-1.9,faceC,1,-.3);
+  }else{
+    S(body,6.2,4.8,5.2,-5.6,15.0,0,base,1);
+    S(body,6.6,5.2,5.4,4.8,15.4,0,base,1);
+    B(body,10,5.6,6.2,0,14.9,0,base,.85);
+    B(body,13,2.6,5.4,0,12.3,0,belly,.6);
+    B(body,3.8,7.6,3.8,8.0,18.6,0,base,.9,-.5);
+    B(body,1.5,3.0,1.3,-8.6,16.6,0,belly,.8,.6);
+    legTop=12;hipX=5.2;hipZ=2.4;headX=9.8;headY=21.6;
+    B(headP,6.0,4.0,4.0,1.8,0,0,faceC,1);
+    B(headP,4.2,2.6,2.8,4.9,-1.3,0,faceC,.9);
+    B(headP,1.0,2.4,1.7,.6,2.2,2.0,base,1,.25);
+    B(headP,1.0,2.4,1.7,.6,2.2,-2.0,base,1,-.25);
+    /* Geweih: zwei Stangen je Seite, nach außen gespreizt */
+    for(const s of[-1,1]){
+      B(headP,.7,4.8,.7,.3,3.9,s*1.4,hornC,1,s*.22);
+      B(headP,.6,3.0,.6,1.2,5.6,s*2.0,hornC,1,s*.68);
+    }
   }
-  h.position.set(8,15,0);pm(bxG,PRM(col),3,9,3,2,4,0,h).rotation.z=-.5;pm(bxG,PRM(col),6,3.5,3.4,5,9,0,h);g.add(h);
+  const upH=sheep?3.4:6.2,loH=sheep?2.6:4.6,hoofH=1.2,wid=sheep?1.6:1.8;
+  B(legP,wid,upH,wid,0,-upH/2,0,legC,1);
+  B(legP,wid*.7,loH,wid*.7,0,-upH-loH/2,0,legC,.9);
+  B(legP,wid*.92,hoofH,wid*.92,0,-upH-loH-hoofH/2,0,hoofC,.7);
+  const legGeo=mgeo(legP),bodyMesh=new T.Mesh(mgeo(body),animalMat),headMesh=new T.Mesh(mgeo(headP),animalMat);
+  bodyMesh.castShadow=true;bodyMesh.receiveShadow=true;g.add(bodyMesh);
+  for(const q of[[-hipX,-hipZ],[-hipX,hipZ],[hipX,hipZ],[hipX,-hipZ]]){
+    const lg=new T.Group();lg.position.set(q[0],legTop,q[1]);
+    const m=new T.Mesh(legGeo,animalMat);m.castShadow=true;lg.add(m);g.add(lg);legs.push(lg);
+  }
+  h.position.set(headX,headY,0);headMesh.castShadow=true;h.add(headMesh);g.add(h);
   g.userData={h,legs,kind:kind||'deer',s:Math.random()*9,mode:'graze',t:1+Math.random()*4,ph:0,hd:Math.random()*6.283,sp:0,call:2+Math.random()*7,x0:0,z0:0,tx:0,tz:0,road:false,escape:false,px:0,pz:0,nx:1,nz:0};
-  animals.push(g);g.rotation.y=-g.userData.hd;g.scale.setScalar(1.3);return g}
+  animals.push(g);g.rotation.y=-g.userData.hd;g.scale.setScalar(sheep?1.1:1.12);return g;
+}
 /* ===== Fluesse+Bruecken, Wasserfaelle, Tunnelvarianten ===== */
 const flowT=[],rvC={},mist=[],dripPts=[],dripG=new T.BufferGeometry();
 const dripM=new T.Points(dripG,new T.PointsMaterial({color:'#bfe3ff',size:2.6,transparent:true,opacity:.8,depthWrite:false}));dripM.frustumCulled=false;S.add(dripM);
