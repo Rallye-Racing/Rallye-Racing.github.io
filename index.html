@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v122 · Three.js r187</title>
+<title>Rally Stage – Lancia Delta Integrale · v123 · Three.js r187</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -13084,7 +13084,7 @@ function animal(col,kind){
     pm(bxG,PRM('#4a3a2e'),1.6,9,1.6,0,-4.5,0,lg);g.add(lg);legs.push(lg);
   }
   h.position.set(8,15,0);pm(bxG,PRM(col),3,9,3,2,4,0,h).rotation.z=-.5;pm(bxG,PRM(col),6,3.5,3.4,5,9,0,h);g.add(h);
-  g.userData={h,legs,kind:kind||'deer',s:Math.random()*9,mode:'graze',t:1+Math.random()*4,ph:0,hd:Math.random()*6.283,sp:0,call:2+Math.random()*7,x0:0,z0:0,tx:0,tz:0};
+  g.userData={h,legs,kind:kind||'deer',s:Math.random()*9,mode:'graze',t:1+Math.random()*4,ph:0,hd:Math.random()*6.283,sp:0,call:2+Math.random()*7,x0:0,z0:0,tx:0,tz:0,road:false,escape:false,px:0,pz:0,nx:1,nz:0};
   animals.push(g);g.rotation.y=-g.userData.hd;g.scale.setScalar(1.3);return g}
 /* ===== Fluesse+Bruecken, Wasserfaelle, Tunnelvarianten ===== */
 const flowT=[],rvC={},mist=[],dripPts=[],dripG=new T.BufferGeometry();
@@ -13168,6 +13168,20 @@ function buildProps(){
     if(inPool(g.position.x,g.position.z)||inRiver(g.position.x,g.position.z,14)){propG.remove(g);animals.pop();continue}
     propG.add(g);
   }}
+  /* v123: Ab und zu steht Wild mitten auf der Strecke. Es bleibt stehen, solange das
+     Auto weit weg ist, und rennt dann quer über das Bankett davon. Die Fluchtrichtung
+     ist die Straßennormalte an der Stelle, damit es nicht in den Gegenverkehr läuft. */
+  if(AC[n])for(let a=0;a<2+((Math.random()*2)|0);a++){
+    const i=pick(used);if(i<0)break;
+    const p=pts[i],fx=Math.cos(p.h),fz=Math.sin(p.h),s=Math.random()<.5?-1:1,lat=s*(10+Math.random()*30);
+    const g=animal(AC[n],sheepB.includes(n)?'sheep':'deer'),u=g.userData;
+    g.position.set(p.x-fz*lat,rh[i]||0,p.y+fx*lat);
+    u.road=true;u.mode='stand';u.px=p.x;u.pz=p.y;u.nx=-fz*s;u.nz=fx*s;
+    u.hd=Math.atan2(u.nz,u.nx);g.rotation.y=-u.hd;
+    // Nach der Flucht streift es im Gelände jenseits des Banketts, nicht auf der Straße.
+    u.x0=g.position.x+u.nx*130;u.z0=g.position.z+u.nz*130;
+    propG.add(g);
+  }
   if(n==='Küste'){const i=pick(used);if(i>=0){const g=new T.Group(),pv=new T.Group(),bg=new T.CylinderGeometry(22,.5,420,12,1,true);bg.rotateZ(-Math.PI/2);bg.translate(210,0,0);
     pm(cylG,PRM('#f2f2ee'),8,110,8,0,47,0,g);pm(cylG,PRM('#c43a2e'),8.6,22,8.6,0,45,0,g);pm(cylG,new T.MeshBasicMaterial({color:'#ffe9a8'}),6,9,6,0,106,0,g);pm(coneG,PRM('#8a2e2a'),9,9,9,0,115,0,g);
     const b1=new T.Mesh(bg,beamMat),b2=new T.Mesh(bg,beamMat);b2.rotation.y=Math.PI;pv.add(b1,b2);pv.position.set(0,106,0);g.add(pv);lhBeam=pv;place(g,i,sd()*(HW+240),0)}}
@@ -13191,8 +13205,22 @@ function updateAnimals(dt){
     const dx=a.position.x-car.x,dz=a.position.z-car.y,d=Math.hypot(dx,dz);
     a.visible=d<820;
     if(!a.visible){a.position.y=tH(a.position.x,a.position.z);continue}
-    if(d<130&&spd>7&&u.mode!=='flee'){u.mode='flee';u.t=1.8+Math.random()*1.5;u.hd=Math.atan2(dz,dx)}
-    if(u.mode==='flee'){
+    if(u.road){
+      // Wild auf der Strecke: stehen und sichern, bis das Auto wirklich heran ist.
+      u.sp=0;u.mode='stand';
+      if(d<Math.max(230,spd*2.4)&&spd>9){
+        u.road=false;u.escape=true;
+        const rx=-Math.sin(car.a),rz=Math.cos(car.a);
+        sndAnimal(u.kind,Math.max(30,d),(dx*rx+dz*rz)/Math.max(30,d),230);
+      }
+    }else if(u.escape){
+      // Quer von der Straße weg, bis das Bankett sicher erreicht ist.
+      u.sp=24;u.hd=Math.atan2(u.nz,u.nx);
+      if((a.position.x-u.px)*u.nx+(a.position.z-u.pz)*u.nz>100){u.escape=false;u.mode='graze';u.t=2+Math.random()*4;u.sp=0}
+    }else if(d<130&&spd>7&&u.mode!=='flee'){u.mode='flee';u.t=1.8+Math.random()*1.5;u.hd=Math.atan2(dz,dx)}
+    if(u.road||u.escape){
+      // Haltung und Schritt kommen aus den beiden Zweigen oben.
+    }else if(u.mode==='flee'){
       u.t-=dt;u.sp=17;
       if(d<210)u.hd=Math.atan2(dz,dx);
       if(u.t<=0){u.mode='graze';u.t=2+Math.random()*4;u.sp=0}
@@ -13216,7 +13244,7 @@ function updateAnimals(dt){
     a.rotation.y=-u.hd;
     const sw=Math.sin(u.ph*2)*Math.min(1,u.sp/12);
     u.legs[0].rotation.z=sw*.55;u.legs[1].rotation.z=-sw*.55;u.legs[2].rotation.z=-sw*.55;u.legs[3].rotation.z=sw*.55;
-    u.h.rotation.z=u.mode==='graze'?-.62+.07*Math.sin(t*1.6+u.s):u.mode==='flee'?.05:-.12+.05*Math.sin(t*1.1+u.s);
+    u.h.rotation.z=u.mode==='graze'?-.62+.07*Math.sin(t*1.6+u.s):(u.mode==='flee'||u.mode==='stand')?.08:-.12+.05*Math.sin(t*1.1+u.s);
     const gy=tH(a.position.x,a.position.z);
     a.position.y+=(gy-a.position.y)*Math.min(1,dt*9);
     u.call-=dt;
