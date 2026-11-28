@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v130 · Three.js r187</title>
+<title>Rally Stage – Lancia Delta Integrale · v131 · Three.js r187</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -13887,7 +13887,7 @@ function carHide(h){
 }
 
 /* --- 3D-Cockpit: klassisches Group-A-Rallye-Cockpit (v95) --- */
-const CK={root:null,wheel:null,tex:null,cv:null,cx:null,bg:null,infoTex:null,infoCv:null,infoCx:null,auxCv:null,auxCx:null,auxTex:null,hoodMat:null,bodyMat:null,rpm:950,n:0,needles:[],needleValues:[0,0,0],auxNeedles:[],auxValues:[0,0,0],cabinLights:[]};
+const CK={root:null,wheel:null,tex:null,cv:null,cx:null,bg:null,infoTex:null,infoCv:null,infoCx:null,auxCv:null,auxCx:null,auxTex:null,hoodMat:null,bodyMat:null,rpm:950,n:0,shiftAt:0,needles:[],needleValues:[0,0,0],auxNeedles:[],auxValues:[0,0,0],cabinLights:[]};
 const CK_EYE=[-6.05,17.05,-3.35]; /* Augenpunkt 1.6 Einheiten höher als 15.45 -> mehr Sicht auf die Straße */
 const CK_DIAL_Z=[-6.09,-3.40,-0.71];
 function cpNorm(v){const l=Math.hypot(v[0],v[1],v[2])||1;return[v[0]/l,v[1]/l,v[2]/l]}
@@ -14529,12 +14529,17 @@ function cockpitUpdate(show){
   let gear,ckRpm;
   if(liveDrive){gear=DRIVE.gear;ckRpm=DRIVE.rpm;}
   else{const gp=Math.min(5.99,ratio*5.4);gear=Math.floor(gp)+1;ckRpm=ratio<.012?950:1350+(gp-Math.floor(gp))*(gear===1?4700:4300);}
+  /* v131: Bei jedem Gangwechsel schlägt der Drehzahlmesser wie beim echten
+     Schaltvorgang kurz auf 0 zurück und läuft dann auf die Drehzahl des neuen
+     Gangs hoch; der Ladedruck bricht im selben Moment ein. */
+  const nowMs=performance.now();
   if(gear!==CK.gear){
-    CK.gear=gear;CK.rpm=ckRpm;
-    CK.needleValues[1]=rzClamp(ckRpm/8000,0,1);  // Zeiger springt direkt mit
+    CK.gear=gear;CK.rpm=0;CK.shiftAt=nowMs;
+    CK.needleValues[1]=0;                       // Zeiger schlägt auf 0 zurück
     CK.needleValues[2]=0;                       // Ladedruck bricht beim Schalten ein
   }
-  CK.rpm+=(ckRpm-CK.rpm)*.25;
+  const shiftDip=nowMs-(CK.shiftAt||-1e9)<110;  // 110 ms auf 0, dann wieder hoch
+  CK.rpm=shiftDip?0:CK.rpm+(ckRpm-CK.rpm)*.28;
   const kmh=Math.round(spd*.32);
   // Innenraumlicht: bei Nacht voll an, in der Dämmerung gedimmt.
   const nightF=typeof tod==='number'?(tod===2?1:tod===1?.35:0):0;

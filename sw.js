@@ -1,6 +1,6 @@
 /* Rally Stage – Offline-Cache.
    Bei jedem Release die Version erhöhen, damit alte Dateien ersetzt werden. */
-const CACHE = 'rally-stage-v130';
+const CACHE = 'rally-stage-v131';
 const CORE = ['./', './index.html', './assets/lancia.glb', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {
