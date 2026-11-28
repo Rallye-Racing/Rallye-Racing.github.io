@@ -10,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
-<title>Rally Stage – Lancia Delta Integrale · v129 · Three.js r187</title>
+<title>Rally Stage – Lancia Delta Integrale · v130 · Three.js r187</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&display=swap">
 <style>
 :root{--ui:1;--pw:100vw;--ph:100vh;--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);--sat:env(safe-area-inset-top,0px);--card:rgba(18,28,21,.88);--card-solid:#142018;--ink:#f4f1e6;--accent:#ffb82e;--accent-glow:rgba(255,184,46,.38);--glass-border:rgba(255,255,255,.14)}
@@ -6189,21 +6189,29 @@ function sndEvent(name,v){
       /* v121: Ansaug-Bellen beim Gasstoß – kurz, mittig, mit etwas Körnung. */
       case 'bark':sndNoise(.13,'bandpass',700,1500,.1,1.1);sndTone('sawtooth',190,120,.1,.03);break;
       case 'pop':sndNoise(.07,'bandpass',420+Math.random()*320,180,.12+Math.random()*.06,1.4);break;
-      /* v119: Schaltgeräusche. Mechanisches Einrasten der Schaltgabel (kurzer
-         metallischer Klack + sattes Tiefton-Einrasten), beim Runterschalten
-         etwas weicher. Beim Hochschalten unter Last zusätzlich ein kurzer
-         Ladedruck-Seufzer, wie ihn ein sequentielles Rallyegetriebe macht. */
+      /* v130: Schaltgeräusche deutlich hörbar. Ein Gangwechsel hat drei Anteile:
+         1) Schaltgabel/Synchronring – trockener, metallischer Klack (hoch, sehr kurz),
+         2) Einrasten der Welle – sattes, tiefes Klacken im Getriebetunnel,
+         3) Zugkraftabriss – kurzes Schnalzen des Antriebsstrangs; beim Hochschalten
+            unter Ladedruck bläst das Wastegate kurz ab, beim Runterschalten gibt es
+            ein knappes Zwischengas-Brummen. Alle Pegel folgen dem Motor-Regler. */
       case 'shiftUp':{
-        sndNoise(.045,'bandpass',3200+Math.random()*500,1500,.085,2.6);
-        sndNoise(.10,'highpass',700,2600,.045,.7,.012);
-        sndTone('triangle',1250,820,.05,.042);
-        sndTone('sine',165,110,.09,.075);
-        if(typeof DRIVE!=='undefined'&&DRIVE.boost>.55)sndNoise(.16,'highpass',2200,5200,.035,.7);
+        const mv=Math.max(0,Math.min(1.5,typeof motorVolume==='number'?motorVolume:1));
+        sndNoise(.028,'bandpass',3500+Math.random()*700,1800,.2*mv,3.4);   // Gabel rastet ein
+        sndNoise(.012,'highpass',5200,7200,.1*mv,1);                       // Metall-Prellen
+        sndTone('triangle',1800+Math.random()*300,900,.04,.07*mv);         // Synchronring
+        sndTone('sine',210,92,.13,.18*mv);                                 // Welle: Einrasten
+        sndNoise(.1,'lowpass',1400,300,.12*mv,.8,.015);                    // Getriebetunnel
+        sndNoise(.055,'bandpass',900,2300,.08*mv,1.5,.02);                 // Antriebsstrang
+        if(typeof DRIVE!=='undefined'&&DRIVE.boost>.5)sndNoise(.2,'highpass',2400,6000,.06*mv,.7,.03); // Wastegate
         break}
       case 'shiftDown':{
-        sndNoise(.05,'bandpass',2400+Math.random()*400,1200,.07,2.2);
-        sndTone('triangle',900,700,.05,.03);
-        sndTone('sine',140,105,.08,.055);
+        const mv=Math.max(0,Math.min(1.5,typeof motorVolume==='number'?motorVolume:1));
+        sndNoise(.034,'bandpass',2500+Math.random()*500,1300,.16*mv,2.8);  // Gabel: Klack
+        sndTone('triangle',1150,760,.05,.055*mv);
+        sndTone('sine',185,88,.15,.17*mv);                                 // schwereres Einrasten
+        sndNoise(.11,'lowpass',1100,280,.11*mv,.9,.015);
+        sndTone('triangle',150,235,.13,.05*mv);                            // Zwischengas
         break}
       case 'pit':for(let k=0;k<5;k++){sndNoise(.07,'bandpass',3100,2700,.07,2,.1+k*.11);sndTone('square',180,160,.05,.03,.1+k*.11)}break;
       case 'finish':[523.25,659.25,783.99,1046.5].forEach((f,i)=>{sndTone('triangle',f,f,.34,.13,i*.13);sndTone('sine',f*2,f*2,.22,.04,i*.13)});break;
@@ -6277,7 +6285,7 @@ function sfx(sp,slip,gas,ex){
   else if(state==='count')rpm=950+Math.sin(r*9)*35;
   if(air)rpm=Math.min(7600,rpm+1200);
   if(gear!==au.gear){
-    if(live&&ratio>.05&&gear>au.gear)au.shiftT=r+.075;
+    if(live&&ratio>.05&&gear>au.gear)au.shiftT=r+.095;
     if(live&&gear>au.gear&&g&&ratio>.2)sndEvent('pop');
     au.gear=gear;
   }
@@ -6288,7 +6296,7 @@ function sfx(sp,slip,gas,ex){
   au.o4.frequency.setTargetAtTime(f0*2,r,.035);
   au.am.frequency.setTargetAtTime(f0*.5,r,.035);
   au.o3.detune.setTargetAtTime(hp<40?(Math.random()-.5)*70:9,r,.02);   // angeschlagener Motor klingt rau
-  const load=live?(g?1:.38):0, duck=(r<au.shiftT)?.35:1, rn=Math.min(1,rpm/7500);
+  const load=live?(g?1:.38):0, duck=(r<au.shiftT)?.28:1, rn=Math.min(1,rpm/7500);
   au.eng.gain.setTargetAtTime((live?(.042+.055*load+.014*ratio)*duck:0)*motorVolume,r,.04);
   au.lp.frequency.setTargetAtTime(420+rpm*.2+load*880,r,.05);
   au.res1.gain.setTargetAtTime(3+3.5*load,r,.08);
